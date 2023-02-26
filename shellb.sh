@@ -45,7 +45,8 @@ _SHELLB_CFG_COLOR_WRN=${_SHELLB_COLOR_YELLOW_B}
 _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
 _SHELLB_CFG_SYMBOL_CHECK=${_SHELLB_SYMBOL_CHECK}
 _SHELLB_CFG_SYMBOL_CROSS=${_SHELLB_SYMBOL_CROSS}
-_SHELLB_CFG_LOG_PREFIX="shellB"
+_SHELLB_CFG_LOG_PREFIX="shellb"
+_SHELLB_CFG_NOTE_FILE="note.md"
 
 _SHELLB_CFG_RC_DEFAULT=\
 '# core commands
@@ -278,9 +279,53 @@ shellb_bookmark_list_purge() {
 }
 
 ###############################################
-# notes functions
+# notepad functions
 ###############################################
-# TODO implement
+_shellb_notepad_calc_dir() {
+  _shellb_print_dbg "_shellb_notepad_calc_dir()"
+  echo "${_SHELLB_DB_NOTES}$(pwd)"
+}
+
+shellb_notepad_calc() {
+  _shellb_print_dbg "_shellb_notepad_calc_file()"
+  echo "$(_shellb_notepad_calc_dir)/${_SHELLB_CFG_NOTE_FILE}"
+}
+
+shellb_notepad_get() {
+  _shellb_print_dbg "shellb_notepad_get()"
+  [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad get failed, no notepad for this dir" || return 1
+  _shellb_notepad_calc_file
+}
+
+shellb_notepad_edit() {
+  _shellb_print_dbg "shellb_notepad_edit($*)"
+  mkdir -p "$(_shellb_notepad_calc_dir)" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1
+  vim "$(_shellb_notepad_calc_file)"
+}
+
+shellb_notepad_show() {
+  _shellb_print_dbg "shellb_notepad_show($*)"
+  [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad show failed, no notepad for this dir" || return 1
+  [ -s "$(_shellb_notepad_calc_file)" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
+  cat "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTEPADS }accessible?" || return 1
+}
+
+shellb_notepad_list() {
+  _shellb_print_dbg "shellb_notepad_list($*)"
+  find "${_SHELLB_DB_NOTES}" -name "${_SHELLB_CFG_NOTE_FILE}" || _shellb_print_err "notepad list failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1
+}
+
+shellb_notepad_del() {
+  _shellb_print_dbg "shellb_notepad_del($*)"
+  rm "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad del failed, no notepad fot this dir" || return 1
+  _shellb_print_nfo "notepad deleted"
+}
+
+shellb_notepad_delall() {
+  _shellb_print_dbg "shellb_notepad_delall($*)"
+  rm "${_SHELLB_DB_NOTES:?}"/* -rf
+  _shellb_print_nfo "all notepads deleted"
+}
 
 ###############################################
 # command functions
@@ -308,4 +353,11 @@ eval "${shellb_cmd_bookmark_list_short}() { (shellb_bookmark_list_short \$@;) }"
 eval "${shellb_cmd_bookmark_list_long}() { (shellb_bookmark_list_long \$@;) }"
 eval "${shellb_cmd_bookmark_list_purge}() { (shellb_bookmark_list_purge \$@;) }"
 
-
+# command functions
+eval "${shellb_cmd_notepad_edit}()   { (shellb_notepad_edit   \"\$@\";) }"
+eval "${shellb_cmd_notepad_show}()   { (shellb_notepad_show   \"\$@\";) }"
+eval "${shellb_cmd_notepad_list}()   { (shellb_notepad_list   \"\$@\";) }"
+eval "${shellb_cmd_notepad_del}()    { (shellb_notepad_del    \"\$@\";) }"
+eval "${shellb_cmd_notepad_get}()    { (shellb_notepad_get    \"\$@\";) }"
+eval "${shellb_cmd_notepad_calc}()   { (shellb_notepad_calc   \"\$@\";) }"
+eval "${shellb_cmd_notepad_delall}() { (shellb_notepad_delall \"\$@\";) }"
