@@ -79,31 +79,31 @@ shellb_cmd_notepad_delall  = npda
 ###############################################
 # helper functions
 ###############################################
-_shellb_print_dbg() {
+function _shellb_print_dbg() {
   [ ${_SHELLB_CFG_DEBUG} -eq 1 ] && printf "${_SHELLB_CFG_LOG_PREFIX}: DEBUG: ${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
 }
 
-_shellb_print_nfo() {
+function _shellb_print_nfo() {
   printf "${_SHELLB_CFG_LOG_PREFIX}: ${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}"
 }
 
-_shellb_print_wrn() {
+function _shellb_print_wrn() {
   printf "${_SHELLB_CFG_LOG_PREFIX}: ${_SHELLB_CFG_COLOR_WRN}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
   # for failures chaining
   return 1
 }
 
-_shellb_print_err() {
+function _shellb_print_err() {
   printf "${_SHELLB_CFG_LOG_PREFIX}: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
   # for failures chaining
   return 1
 }
 
-_shellb_print_keyvalue_ok() {
+function _shellb_print_keyvalue_ok() {
   printf "${_SHELLB_CFG_SYMBOL_CHECK} %-15s: %s\n" "${1}" "${2}"
 }
 
-_shellb_print_keyvalue_err() {
+function _shellb_print_keyvalue_err() {
   printf "${_SHELLB_CFG_SYMBOL_CROSS} %-15s: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
 }
 
@@ -139,27 +139,19 @@ done < "${_SHELLB_RC}"
   || echo "${_SHELLB_CFG_RC_DEFAULT}" > "${_SHELLB_RC}"
 
 ###############################################
-# core functions
-###############################################
-# TODO implement
-shellb_core_help() {
-  _shellb_print_wrn "not implemented yet"
-}
-
-###############################################
 # bookmark functions
 ###############################################
-_shellb_core_all_bookmarks_column() {
+function _shellb_core_all_bookmarks_column() {
   # list bookmarks line by line
   ls -1 "${_SHELLB_DB_BOOKMARKS}"
 }
 
-_shellb_core_all_bookmarks_row() {
+function _shellb_core_all_bookmarks_row() {
   # list bookmarks line by line
   ls -x "${_SHELLB_DB_BOOKMARKS}"
 }
 
-_shellb_bookmark_get() {
+function _shellb_bookmark_get() {
   _shellb_print_dbg "_shellb_bookmark_get(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || return 1
@@ -171,7 +163,7 @@ _shellb_bookmark_get() {
   fi
 }
 
-shellb_bookmark_set() {
+function shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
 
   # check if bookmark name is given
@@ -195,7 +187,7 @@ shellb_bookmark_set() {
   shellb_bookmark_get_long "${1}"
 }
 
-shellb_bookmark_del() {
+function shellb_bookmark_del() {
   _shellb_print_dbg "shellb_bookmark_del(${1})"
 
   [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "del bookmark failed, unknown bookmark" || return 1
@@ -203,7 +195,7 @@ shellb_bookmark_del() {
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
 
-shellb_bookmark_get_short() {
+function shellb_bookmark_get_short() {
   _shellb_print_dbg "shellb_bookmark_get_short(${1})"
 
   # check if bookmark name is given
@@ -212,7 +204,7 @@ shellb_bookmark_get_short() {
   _shellb_bookmark_get "${1}" || _shellb_print_err "get bookmark failed, unknown bookmark" || return 1
 }
 
-shellb_bookmark_get_long() {
+function shellb_bookmark_get_long() {
   _shellb_print_dbg "shellb_bookmark_get_long(${1})"
 
   # check if bookmark is known, and save it in TARGET
@@ -227,7 +219,7 @@ shellb_bookmark_get_long() {
   fi
 }
 
-shellb_bookmark_goto() {
+function shellb_bookmark_goto() {
   _shellb_print_dbg "shellb_bookmark_goto(${1})"
 
   # check if bookmark name is given
@@ -244,7 +236,7 @@ shellb_bookmark_goto() {
   cd "${TARGET}" || _shellb_print_err "goto bookmark failed, bookmark to dangling directory or no permissions to enter it" || return 1
 }
 
-shellb_bookmark_list_long() {
+function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long(${1})"
 
   # display bookmark names and paths
@@ -254,14 +246,14 @@ shellb_bookmark_list_long() {
   done < <(_shellb_core_all_bookmarks_column)
 }
 
-shellb_bookmark_list_short() {
+function shellb_bookmark_list_short() {
   _shellb_print_dbg "shellb_bookmark_list_short(${1})"
 
   # just display bookmark names
   ls "${_SHELLB_DB_BOOKMARKS}"
 }
 
-shellb_bookmark_list_purge() {
+function shellb_bookmark_list_purge() {
   _shellb_print_dbg "shellb_bookmark_listpurge(${1})"
 
   # display bookmark names and paths
@@ -290,47 +282,47 @@ shellb_bookmark_list_purge() {
 ###############################################
 # notepad functions
 ###############################################
-_shellb_notepad_calc_dir() {
+function _shellb_notepad_calc_dir() {
   _shellb_print_dbg "_shellb_notepad_calc_dir()"
   echo "${_SHELLB_DB_NOTES}$(pwd)"
 }
 
-shellb_notepad_calc() {
+function shellb_notepad_calc() {
   _shellb_print_dbg "_shellb_notepad_calc_file()"
   echo "$(_shellb_notepad_calc_dir)/${_SHELLB_CFG_NOTE_FILE}"
 }
 
-shellb_notepad_get() {
+function shellb_notepad_get() {
   _shellb_print_dbg "shellb_notepad_get()"
   [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad get failed, no notepad for this dir" || return 1
   _shellb_notepad_calc_file
 }
 
-shellb_notepad_edit() {
+function shellb_notepad_edit() {
   _shellb_print_dbg "shellb_notepad_edit($*)"
   mkdir -p "$(_shellb_notepad_calc_dir)" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1
   vim "$(_shellb_notepad_calc_file)"
 }
 
-shellb_notepad_show() {
+function shellb_notepad_show() {
   _shellb_print_dbg "shellb_notepad_show($*)"
   [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad show failed, no notepad for this dir" || return 1
   [ -s "$(_shellb_notepad_calc_file)" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
   cat "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTEPADS }accessible?" || return 1
 }
 
-shellb_notepad_list() {
+function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
   find "${_SHELLB_DB_NOTES}" -name "${_SHELLB_CFG_NOTE_FILE}" || _shellb_print_err "notepad list failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1
 }
 
-shellb_notepad_del() {
+function shellb_notepad_del() {
   _shellb_print_dbg "shellb_notepad_del($*)"
   rm "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad del failed, no notepad fot this dir" || return 1
   _shellb_print_nfo "notepad deleted"
 }
 
-shellb_notepad_delall() {
+function shellb_notepad_delall() {
   _shellb_print_dbg "shellb_notepad_delall($*)"
   rm "${_SHELLB_DB_NOTES:?}"/* -rf
   _shellb_print_nfo "all notepads deleted"
@@ -342,6 +334,14 @@ shellb_notepad_delall() {
 # TODO implement
 
 ###############################################
+# core functions
+###############################################
+# TODO implement
+function shellb_core_help() {
+  _shellb_print_wrn "not implemented yet"
+}
+
+###############################################
 # shortcuts
 # (these are just aliases to the core functions)
 ###############################################
@@ -349,24 +349,32 @@ shellb_notepad_delall() {
 # to avoid polluting current shell with any side effects of shellb_ functions
 
 #core functions
-eval "${shellb_cmd_core_help}() { (shellb_core_help \$@;) }"
+eval "${shellb_cmd_core_help}()                    { (shellb_core_help           \$@;) }"
 
 # bookmark functions
-eval "${shellb_cmd_bookmark_set}() { (shellb_bookmark_set \"\$@\";) }"
-eval "${shellb_cmd_bookmark_del}() { (shellb_bookmark_del \$@;) }"
-eval "${shellb_cmd_bookmark_get_short}() { (shellb_bookmark_get_short \$@;) }"
-eval "${shellb_cmd_bookmark_get_long}() { (shellb_bookmark_get_long \$@;) }"
-# we need side effects of shellb_bookmark_goto, so we don't invoke it in subshell
-eval "${shellb_cmd_bookmark_goto}() { shellb_bookmark_goto \$@; }"
-eval "${shellb_cmd_bookmark_list_short}() { (shellb_bookmark_list_short \$@;) }"
-eval "${shellb_cmd_bookmark_list_long}() { (shellb_bookmark_list_long \$@;) }"
-eval "${shellb_cmd_bookmark_list_purge}() { (shellb_bookmark_list_purge \$@;) }"
+eval "function ${shellb_cmd_bookmark_set}()        { (shellb_bookmark_set      \"\$@\";) }"
+eval "function ${shellb_cmd_bookmark_del}()        { (shellb_bookmark_del        \$@;) }"
+eval "function ${shellb_cmd_bookmark_get_short}()  { (shellb_bookmark_get_short  \$@;) }"
+eval "function ${shellb_cmd_bookmark_get_long}()   { (shellb_bookmark_get_long   \$@;) }"
+eval "function ${shellb_cmd_bookmark_goto}()       {  shellb_bookmark_goto       \$@;  }" # no subshell, we need side effects
+eval "function ${shellb_cmd_bookmark_list_short}() { (shellb_bookmark_list_short \$@;) }"
+eval "function ${shellb_cmd_bookmark_list_long}()  { (shellb_bookmark_list_long  \$@;) }"
+eval "function ${shellb_cmd_bookmark_list_purge}() { (shellb_bookmark_list_purge \$@;) }"
 
 # command functions
-eval "${shellb_cmd_notepad_edit}()   { (shellb_notepad_edit   \"\$@\";) }"
-eval "${shellb_cmd_notepad_show}()   { (shellb_notepad_show   \"\$@\";) }"
-eval "${shellb_cmd_notepad_list}()   { (shellb_notepad_list   \"\$@\";) }"
-eval "${shellb_cmd_notepad_del}()    { (shellb_notepad_del    \"\$@\";) }"
-eval "${shellb_cmd_notepad_get}()    { (shellb_notepad_get    \"\$@\";) }"
-eval "${shellb_cmd_notepad_calc}()   { (shellb_notepad_calc   \"\$@\";) }"
-eval "${shellb_cmd_notepad_delall}() { (shellb_notepad_delall \"\$@\";) }"
+eval "function ${shellb_cmd_notepad_edit}()        { (shellb_notepad_edit      \"\$@\";) }"
+eval "function ${shellb_cmd_notepad_show}()        { (shellb_notepad_show      \"\$@\";) }"
+eval "function ${shellb_cmd_notepad_list}()        { (shellb_notepad_list      \"\$@\";) }"
+eval "function ${shellb_cmd_notepad_del}()         { (shellb_notepad_del       \"\$@\";) }"
+eval "function ${shellb_cmd_notepad_get}()         { (shellb_notepad_get       \"\$@\";) }"
+eval "function ${shellb_cmd_notepad_calc}()        { (shellb_notepad_calc      \"\$@\";) }"
+eval "function ${shellb_cmd_notepad_delall}()      { (shellb_notepad_delall    \"\$@\";) }"
+
+###############################################
+# completions for shortcuts
+# (shortcuts prefixed with _)
+###############################################
+
+function shellb_completsions_install() {
+  _shellb_print_wrn "not implemented yet"
+}
