@@ -143,12 +143,16 @@ done < "${_SHELLB_RC}"
 ###############################################
 function _shellb_bookmarks_column() {
   # list bookmarks line by line
-  ls -1 "${_SHELLB_DB_BOOKMARKS}"
+  # we do it in subshell to avoid changing directory for whoever called us
+    ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
+      ls -1 "${1}"* )
 }
 
 function _shellb_bookmarks_row() {
-  # list bookmarks line by line
-  ls -x "${_SHELLB_DB_BOOKMARKS}"
+  # list bookmarks in a single line
+  # we do it in subshell to avoid changing directory for whoever called us
+  ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
+    ls -x "${1}"* )
 }
 
 function _shellb_bookmark_get() {
@@ -239,7 +243,7 @@ function shellb_bookmark_goto() {
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long(${1})"
 
-  # display bookmark names and paths
+  # display long form of all bookmarks or only those starting with given string
   while read -r bookmark
   do
     shellb_bookmark_get_long "${bookmark}"
@@ -249,9 +253,10 @@ function shellb_bookmark_list_long() {
 function shellb_bookmark_list_short() {
   _shellb_print_dbg "shellb_bookmark_list_short(${1})"
 
-  # just display bookmark names using ls, as it looks nice enough
-  cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "list bookmarks failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
-  ls "${1}"*
+  # display long form of all bookmarks or only those starting with given string
+  _shellb_bookmarks_row "${1}"
+  #cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "list bookmarks failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  #ls "${1}"*
 }
 
 function shellb_bookmark_list_purge() {
