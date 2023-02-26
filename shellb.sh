@@ -141,12 +141,12 @@ done < "${_SHELLB_RC}"
 ###############################################
 # bookmark functions
 ###############################################
-function _shellb_core_all_bookmarks_column() {
+function _shellb_bookmarks_column() {
   # list bookmarks line by line
   ls -1 "${_SHELLB_DB_BOOKMARKS}"
 }
 
-function _shellb_core_all_bookmarks_row() {
+function _shellb_bookmarks_row() {
   # list bookmarks line by line
   ls -x "${_SHELLB_DB_BOOKMARKS}"
 }
@@ -243,13 +243,13 @@ function shellb_bookmark_list_long() {
   while read -r bookmark
   do
     shellb_bookmark_get_long "${bookmark}"
-  done < <(_shellb_core_all_bookmarks_column)
+  done < <(_shellb_bookmarks_column)
 }
 
 function shellb_bookmark_list_short() {
   _shellb_print_dbg "shellb_bookmark_list_short(${1})"
 
-  # just display bookmark names
+  # just display bookmark names using ls, as it looks nice enough
   ls "${_SHELLB_DB_BOOKMARKS}"
 }
 
@@ -274,9 +274,26 @@ function shellb_bookmark_list_purge() {
 
     # reset TARGET
     TARGET=""
-  done < <(_shellb_core_all_bookmarks_column)
+  done < <(_shellb_bookmarks_column)
 
   [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged"
+}
+
+###############################################
+# bookmark completion functions
+###############################################
+function _shellb_bookmark_completions() {
+  local cur prev opts
+
+  # reset COMPREPLY, as it's global and may have been set in previous invocation
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+  prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
+  opts="$(_shellb_bookmarks_row)" # fetch current list of bookmarks
+
+  # if cur is empty, we're completing bookmark name
+  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+  return 0
 }
 
 ###############################################
@@ -374,7 +391,12 @@ eval "function ${shellb_cmd_notepad_delall}()      { (shellb_notepad_delall    \
 # completions for shortcuts
 # (shortcuts prefixed with _)
 ###############################################
-
-function shellb_completsions_install() {
-  _shellb_print_wrn "not implemented yet"
+function shellb_completions_install() {
+  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_del}"
+  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_get_short}"
+  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_get_long}"
+  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_goto}"
 }
+
+# install completions when we're sourced
+shellb_completions_install
