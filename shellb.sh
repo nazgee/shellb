@@ -45,34 +45,38 @@ _SHELLB_CFG_COLOR_WRN=${_SHELLB_COLOR_YELLOW_B}
 _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
 _SHELLB_CFG_SYMBOL_CHECK=${_SHELLB_SYMBOL_CHECK}
 _SHELLB_CFG_SYMBOL_CROSS=${_SHELLB_SYMBOL_CROSS}
-_SHELLB_CFG_LOG_PREFIX="shellb"
+_SHELLB_CFG_LOG_PREFIX="shellb | "
 _SHELLB_CFG_NOTE_FILE="note.md"
 
 _SHELLB_CFG_RC_DEFAULT=\
-'# core functions
-shellb_func_core_help = h
+'## core functions
+ shellb_func_core_help = h
 
-# bookmark functions
-shellb_func_bookmark_set = s
-shellb_func_bookmark_del = r
-shellb_func_bookmark_get_short = ds
-shellb_func_bookmark_get_long = d
-shellb_func_bookmark_goto = g
-shellb_func_bookmark_list_short = sls
-shellb_func_bookmark_list_long = sl
-shellb_func_bookmark_list_purge = slp
+ ## bookmark functions
+ shellb_func_bookmark_set = s
+ shellb_func_bookmark_del = r
+ shellb_func_bookmark_get_short = ds
+ shellb_func_bookmark_get_long = d
+ shellb_func_bookmark_goto = g
+ shellb_func_bookmark_list_short = sls
+ shellb_func_bookmark_list_long = sl
+ shellb_func_bookmark_list_purge = slp
 
-# notepad functions
-shellb_func_notepad_edit = npe
-shellb_func_notepad_show = nps
-shellb_func_notepad_list = npl
-shellb_func_notepad_del  = npd
-shellb_func_notepad_get  = npg
-shellb_func_notepad_calc = npc
-shellb_func_notepad_delall  = npda
+ ## notepad functions
+ shellb_func_notepad_edit = npe
+ shellb_func_notepad_show = nps
+ shellb_func_notepad_list = npl
+ shellb_func_notepad_del  = npd
+ shellb_func_notepad_get  = npg
+ shellb_func_notepad_calc = npc
+ shellb_func_notepad_delall  = npda
 
-# command functions
+ ## notepad config
+ #  in debian distros, "editor" is a default cmdline editor
+ #  feel free to force "vim", "nano" or "whateveryouwant"
+ shellb_cfg_notepad_editor = editor
 
+ ## command functions
 '
 
 
@@ -80,21 +84,21 @@ shellb_func_notepad_delall  = npda
 # helper functions
 ###############################################
 function _shellb_print_dbg() {
-  [ ${_SHELLB_CFG_DEBUG} -eq 1 ] && printf "${_SHELLB_CFG_LOG_PREFIX}: DEBUG: ${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
+  [ ${_SHELLB_CFG_DEBUG} -eq 1 ] && printf "${_SHELLB_CFG_LOG_PREFIX}DEBUG: ${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
 }
 
 function _shellb_print_nfo() {
-  printf "${_SHELLB_CFG_LOG_PREFIX}: ${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}"
+  printf "${_SHELLB_CFG_LOG_PREFIX}${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}"
 }
 
 function _shellb_print_wrn() {
-  printf "${_SHELLB_CFG_LOG_PREFIX}: ${_SHELLB_CFG_COLOR_WRN}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
+  printf "${_SHELLB_CFG_LOG_PREFIX}${_SHELLB_CFG_COLOR_WRN}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
   # for failures chaining
   return 1
 }
 
 function _shellb_print_err() {
-  printf "${_SHELLB_CFG_LOG_PREFIX}: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
+  printf "${_SHELLB_CFG_LOG_PREFIX}${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
   # for failures chaining
   return 1
 }
@@ -306,26 +310,33 @@ function _shellb_bookmark_completions() {
 ###############################################
 # notepad functions
 ###############################################
+# displays directory of notepad file for current directory
+# always succeeds (even if no notepad is created yet)
 function _shellb_notepad_calc_dir() {
   _shellb_print_dbg "_shellb_notepad_calc_dir()"
   echo "${_SHELLB_DB_NOTES}$(pwd)"
 }
 
+# displays path to notepad file for current directory
+# always succeeds (even if no notepad is created yet)
 function shellb_notepad_calc() {
   _shellb_print_dbg "_shellb_notepad_calc_file()"
   echo "$(_shellb_notepad_calc_dir)/${_SHELLB_CFG_NOTE_FILE}"
 }
 
+# displays path to notepad file for current directory
+# will fail if no notepad is created yet
 function shellb_notepad_get() {
   _shellb_print_dbg "shellb_notepad_get()"
   [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad get failed, no notepad for this dir" || return 1
   _shellb_notepad_calc_file
 }
 
+# opens a notepad for current directory in
 function shellb_notepad_edit() {
   _shellb_print_dbg "shellb_notepad_edit($*)"
   mkdir -p "$(_shellb_notepad_calc_dir)" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1
-  vim "$(_shellb_notepad_calc_file)"
+  "${shellb_cfg_notepad_editor}" "$(_shellb_notepad_calc_file)"
 }
 
 function shellb_notepad_show() {
@@ -335,9 +346,67 @@ function shellb_notepad_show() {
   cat "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTEPADS }accessible?" || return 1
 }
 
+function _shellb_notepad_calc_search_path() {
+    # calculate root directory for notepads search
+    # if no argument is given, search every notepad
+    # if an argument is given, search only notepads below the given directory
+    local NOTEPADS_ROOT
+    NOTEPADS_ROOT="${1}"
+    [ -z "${NOTEPADS_ROOT}" ] || NOTEPADS_ROOT=$(realpath "${1}")
+    NOTEPADS_ROOT=$(realpath "${_SHELLB_DB_NOTES}/${NOTEPADS_ROOT}")
+
+    echo "${NOTEPADS_ROOT}"
+}
+
+function _shellb_notepad_list_row() {
+  local NOTEPADS_SEARCH_ROOT
+  NOTEPADS_SEARCH_ROOT=$(_shellb_notepad_calc_search_path "${1}")
+
+  while read -r notepadfile
+  do
+    # display only the part of the path that is not the notepad directory
+    printf "%s  " "${notepadfile#${NOTEPADS_SEARCH_ROOT}}"
+  done < <(find "${NOTEPADS_SEARCH_ROOT}" -name "${_SHELLB_CFG_NOTE_FILE}" || _shellb_print_err "notepad list row failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1)
+  echo ""
+}
+
+function _shellb_notepad_list_column() {
+  # TODO move it to _shellb_notepad_calc_search_path, so ./ prepending
+  # is done only once
+  local NOTEPADS_SEARCH_PATH NOTEPADS_SEARCH_ROOT
+  NOTEPADS_SEARCH_PATH="${1}"
+  [ -z "${NOTEPADS_SEARCH_PATH}" ] || NOTEPADS_SEARCH_PATH="/"
+  NOTEPADS_SEARCH_ROOT=$(_shellb_notepad_calc_search_path "${1}")
+
+  while read -r notepadfile
+  do
+    # display only the part of the path that is not the notepad directory
+    if [[ "${NOTEPADS_SEARCH_PATH}" = "/" ]]; then
+      printf "%s\n" ".${notepadfile#${NOTEPADS_SEARCH_ROOT}}"
+    else
+      printf "%s\n" "${notepadfile#${NOTEPADS_SEARCH_ROOT}}"
+    fi
+  done < <(find "${NOTEPADS_SEARCH_ROOT}" -name "${_SHELLB_CFG_NOTE_FILE}" || _shellb_print_err "notepad list column failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1)
+}
+
+function _shellb_notepad_list_print_menu() {
+  local i=1
+  while read -r notepadfile
+  do
+    # display only the part of the path that is not the notepad directory
+    printf "%3s. %s\n" "${i}" "${notepadfile#${_SHELLB_DB_NOTES}}"
+    i=$(($i+1))
+  done < <(_shellb_notepad_list_column "${1}")
+}
+
 function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
-  find "${_SHELLB_DB_NOTES}" -name "${_SHELLB_CFG_NOTE_FILE}" || _shellb_print_err "notepad list failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1
+  _shellb_print_nfo "available notepads:"
+  _shellb_notepad_list_print_menu "${1}"
+}
+
+function shellb_notepad_list_edit() {
+  _shellb_print_wrn "notepad completions not implemented yet"
 }
 
 function shellb_notepad_del() {
@@ -350,6 +419,24 @@ function shellb_notepad_delall() {
   _shellb_print_dbg "shellb_notepad_delall($*)"
   rm "${_SHELLB_DB_NOTES:?}"/* -rf
   _shellb_print_nfo "all notepads deleted"
+}
+
+###############################################
+# notepad completion functions
+###############################################
+function _shellb_notepad_completions() {
+  _shellb_print_wrn "notepad completions not implemented yet"
+#  local cur prev opts
+#
+#  # reset COMPREPLY, as it's global and may have been set in previous invocation
+#  COMPREPLY=()
+#  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+#  prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
+#  opts="$(_shellb_bookmarks_row "")" # fetch full list of bookmarks, compgen will filter it
+#
+#  # if cur is empty, we're completing bookmark name
+#  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+#  return 0
 }
 
 ###############################################
