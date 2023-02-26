@@ -134,17 +134,17 @@ done < "${_SHELLB_RC}"
 # bookmark functions
 ###############################################
 function _shellb_bookmarks_column() {
-  # list bookmarks line by line
+  # list bookmarks in a row (line by line)
   # we do it in subshell to avoid changing directory for whoever called us
     ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
-      ls -1 "${1}"* )
+      ls -1 "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks matching \"${1}\" found" || return 1)
 }
 
 function _shellb_bookmarks_row() {
   # list bookmarks in a single line
   # we do it in subshell to avoid changing directory for whoever called us
   ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
-    ls -x "${1}"* )
+    ls -x "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks matching \"${1}\" found" || return 1 )
 }
 
 function _shellb_bookmark_get() {
@@ -256,10 +256,8 @@ function shellb_bookmark_list_long() {
 function shellb_bookmark_list_short() {
   _shellb_print_dbg "shellb_bookmark_list_short(${1})"
 
-  # display long form of all bookmarks or only those starting with given string
+  # display short form of all bookmarks or only those starting with given string
   _shellb_bookmarks_row "${1}"
-  #cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "list bookmarks failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
-  #ls "${1}"*
 }
 
 function shellb_bookmark_list_purge() {
