@@ -39,7 +39,7 @@ _SHELLB_SYMBOL_CHECK="\u2714"
 _SHELLB_SYMBOL_CROSS="\u2716"
 
 # config
-_SHELLB_CFG_DEBUG=0
+_SHELLB_CFG_DEBUG=1
 _SHELLB_CFG_COLOR_NFO=""
 _SHELLB_CFG_COLOR_WRN=${_SHELLB_COLOR_YELLOW_B}
 _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
@@ -49,10 +49,10 @@ _SHELLB_CFG_LOG_PREFIX="shellb"
 _SHELLB_CFG_NOTE_FILE="note.md"
 
 _SHELLB_CFG_RC_DEFAULT=\
-'# core commands
+'# core functions
 shellb_cmd_core_help = h
 
-# bookmar commands
+# bookmark functions
 shellb_cmd_bookmark_set = s
 shellb_cmd_bookmark_del = r
 shellb_cmd_bookmark_get_short = ds
@@ -61,6 +61,18 @@ shellb_cmd_bookmark_goto = g
 shellb_cmd_bookmark_list_short = sls
 shellb_cmd_bookmark_list_long = sl
 shellb_cmd_bookmark_list_purge = slp
+
+# notepad functions
+shellb_cmd_notepad_edit = npe
+shellb_cmd_notepad_show = nps
+shellb_cmd_notepad_list = npl
+shellb_cmd_notepad_del  = npd
+shellb_cmd_notepad_get  = npg
+shellb_cmd_notepad_calc = npc
+shellb_cmd_notepad_delall  = npda
+
+# command functions
+
 '
 
 
@@ -134,18 +146,23 @@ shellb_core_help() {
   _shellb_print_wrn "not implemented yet"
 }
 
-_shellb_core_all_bookmarks() {
+###############################################
+# bookmark functions
+###############################################
+_shellb_core_all_bookmarks_column() {
   # list bookmarks line by line
   ls -1 "${_SHELLB_DB_BOOKMARKS}"
 }
 
-###############################################
-# bookmark functions
-###############################################
+_shellb_core_all_bookmarks_row() {
+  # list bookmarks line by line
+  ls -x "${_SHELLB_DB_BOOKMARKS}"
+}
+
 _shellb_bookmark_get() {
   _shellb_print_dbg "_shellb_bookmark_get(${1})"
   # check if bookmark name is given
-  [[ -n ${1} ]] || return 1
+  [ -n "${1}" ] || return 1
 
   if [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ]; then
     cat "${_SHELLB_DB_BOOKMARKS}/${1}"
@@ -158,7 +175,7 @@ shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
 
   # check if bookmark name is given
-  [[ -n ${1} ]] || _shellb_print_err "set bookmark failed, bookmark name can't be empty" || return 1
+  [ -n "${1}" ] || _shellb_print_err "set bookmark failed, bookmark name can't be empty" || return 1
 
   # if second arg is not given, bookmark current directory
   local TARGET
@@ -169,17 +186,10 @@ shellb_bookmark_set() {
   TARGET=$(realpath "${TARGET}")
 
   # check if bookmark directory exists
-  [ -e "${TARGET}" ] || _shellb_print_err "set bookmark failed, directory invalid (${TARGET})" || return 1
+  [ -e "${TARGET}" ] || _shellb_print_err "set bookmark failed, invalid directory (${TARGET})" || return 1
 
   # build the bookmark file with the contents "$CD directory_path"
-  echo "$TARGET" > "${_SHELLB_DB_BOOKMARKS}/${1}"
-
-  # if the bookmark could not be created, print an error message and
-  # exit with a failing return code
-  if [ $? != 0 ]; then
-    _shellb_print_err "set bookmark failed, saving bookmark failed"
-    return 1
-  fi
+  echo "$TARGET" > "${_SHELLB_DB_BOOKMARKS}/${1}" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
 
   _shellb_print_nfo "bookmark set:"
   shellb_bookmark_get_long "${1}"
@@ -188,7 +198,7 @@ shellb_bookmark_set() {
 shellb_bookmark_del() {
   _shellb_print_dbg "shellb_bookmark_del(${1})"
 
-  [[ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ]] || _shellb_print_err "del bookmark failed, unknown bookmark" || return 1
+  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "del bookmark failed, unknown bookmark" || return 1
   rm "${_SHELLB_DB_BOOKMARKS}/${1}" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
@@ -197,7 +207,7 @@ shellb_bookmark_get_short() {
   _shellb_print_dbg "shellb_bookmark_get_short(${1})"
 
   # check if bookmark name is given
-  [[ -n ${1} ]] || _shellb_print_err "get bookmark failed, no bookmark name given" || return 1
+  [ -n "${1}" ] || _shellb_print_err "get bookmark failed, no bookmark name given" || return 1
   # print the bookmark name or display an error message
   _shellb_bookmark_get "${1}" || _shellb_print_err "get bookmark failed, unknown bookmark" || return 1
 }
@@ -207,8 +217,7 @@ shellb_bookmark_get_long() {
 
   # check if bookmark is known, and save it in TARGET
   local TARGET
-  TARGET=$(shellb_bookmark_get_short "$1")
-  [ $? -eq 0 ] || return 1 # error message already printed
+  TARGET=$(shellb_bookmark_get_short "$1") || return 1 # error message already printed
 
   # check if TARGET is "alive" or "dangling"
   if [[ -d "${TARGET}" ]]; then
@@ -222,18 +231,17 @@ shellb_bookmark_goto() {
   _shellb_print_dbg "shellb_bookmark_goto(${1})"
 
   # check if bookmark name is given
-  [[ -n ${1} ]] || _shellb_print_err "goto bookmark failed, no bookmark name given" || return 1
+  [ -n "${1}" ] || _shellb_print_err "goto bookmark failed, no bookmark name given" || return 1
 
   # check if given bookmark exists
-  [[ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ]] || _shellb_print_err "goto bookmark failed, unknown bookmark" || return 1
+  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "goto bookmark failed, unknown bookmark" || return 1
 
   # get bookmarked directory
   local TARGET
-  TARGET=$(cat "${_SHELLB_DB_BOOKMARKS}/${1}" 2>/dev/null)
-  [ $? -eq 0 ] || _shellb_print_err "goto bookmark failed, unknown bookmark" || return 1
+  TARGET=$(cat "${_SHELLB_DB_BOOKMARKS}/${1}" 2>/dev/null) || _shellb_print_err "goto bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
 
   # go to bookmarked directory
-  cd "${TARGET}" || _shellb_print_err "goto bookmark failed, bookmar to dangling target or no permissions" || return 1
+  cd "${TARGET}" || _shellb_print_err "goto bookmark failed, bookmark to dangling directory or no permissions to enter it" || return 1
 }
 
 shellb_bookmark_list_long() {
@@ -243,7 +251,7 @@ shellb_bookmark_list_long() {
   while read -r bookmark
   do
     shellb_bookmark_get_long "${bookmark}"
-  done < <(_shellb_core_all_bookmarks)
+  done < <(_shellb_core_all_bookmarks_column)
 }
 
 shellb_bookmark_list_short() {
@@ -265,6 +273,7 @@ shellb_bookmark_list_purge() {
     TARGET=$(_shellb_bookmark_get "${bookmark}")
 
     # delete any target that does not exist
+    # and print a banner message if any bookmark was deleted
     if [[ ! -e "${TARGET}" ]]; then
       [ ${PURGED} -eq 0 ] && _shellb_print_nfo "purged bookmarks:"
       shellb_bookmark_del "${bookmark}"
@@ -273,7 +282,7 @@ shellb_bookmark_list_purge() {
 
     # reset TARGET
     TARGET=""
-  done < <(_shellb_core_all_bookmarks)
+  done < <(_shellb_core_all_bookmarks_column)
 
   [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged"
 }
