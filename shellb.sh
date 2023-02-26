@@ -335,7 +335,7 @@ function shellb_notepad_get() {
 # opens a notepad for current directory in
 function shellb_notepad_edit() {
   _shellb_print_dbg "shellb_notepad_edit($*)"
-  mkdir -p "$(_shellb_notepad_calc_dir)" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1
+  mkdir -p "$(_shellb_notepad_calc_dir)" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
   "${shellb_cfg_notepad_editor}" "$(_shellb_notepad_calc_file)"
 }
 
@@ -343,66 +343,72 @@ function shellb_notepad_show() {
   _shellb_print_dbg "shellb_notepad_show($*)"
   [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad show failed, no notepad for this dir" || return 1
   [ -s "$(_shellb_notepad_calc_file)" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
-  cat "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTEPADS }accessible?" || return 1
+  cat "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
 }
 
 function _shellb_notepad_calc_search_path() {
-    # calculate root directory for notepads search
-    # if no argument is given, search every notepad
-    # if an argument is given, search only notepads below the given directory
-    local NOTEPADS_ROOT
-    NOTEPADS_ROOT="${1}"
-    [ -z "${NOTEPADS_ROOT}" ] || NOTEPADS_ROOT=$(realpath "${1}")
-    NOTEPADS_ROOT=$(realpath "${_SHELLB_DB_NOTES}/${NOTEPADS_ROOT}")
+  [ -n "${1}" ] || _shellb_print_err "notepads calc_search_path, search top not given" || return 1
 
-    echo "${NOTEPADS_ROOT}"
+  # calculate search directory for notepads under $1
+  realpath "${_SHELLB_DB_NOTES}/$(realpath "${1}")"
 }
 
-function _shellb_notepad_list_row() {
-  local NOTEPADS_SEARCH_ROOT
-  NOTEPADS_SEARCH_ROOT=$(_shellb_notepad_calc_search_path "${1}")
+function _shellb_notepad_list_with_suffix() {
+  [ -n "${1}" ] || _shellb_print_err "notepads list_with_suffix, search top not given" || return 1
 
+  local NOTEPADS_TOP NOTEPADS_SEARCH
+  NOTEPADS_TOP="${1}"
+  NOTEPADS_SEARCH=$(_shellb_notepad_calc_search_path "${1}")
+  [ -d "${NOTEPADS_SEARCH}" ] || return 1
+
+  local NOTEPADS_SEEN
+  NOTEPADS_SEEN=0
   while read -r notepadfile
   do
+    NOTEPADS_SEEN=1
     # display only the part of the path that is not the notepad directory
-    printf "%s  " "${notepadfile#${NOTEPADS_SEARCH_ROOT}}"
-  done < <(find "${NOTEPADS_SEARCH_ROOT}" -name "${_SHELLB_CFG_NOTE_FILE}" || _shellb_print_err "notepad list row failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1)
-  echo ""
+    if [[ "${NOTEPADS_TOP}" = "/" ]]; then
+      printf "%s%b" "${notepadfile#${NOTEPADS_SEARCH}}" "${2}"
+    else
+      printf "%s%b" ".${notepadfile#${NOTEPADS_SEARCH}}" "${2}"
+    fi
+  done < <(find "${NOTEPADS_SEARCH}" -name "${_SHELLB_CFG_NOTE_FILE}" 2>/dev/null) || _shellb_print_err "notepad list column failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
+
+  # if no notepads seen, return error
+  [ "${NOTEPADS_SEEN}" -eq 1 ] || return 1
 }
 
 function _shellb_notepad_list_column() {
-  # TODO move it to _shellb_notepad_calc_search_path, so ./ prepending
-  # is done only once
-  local NOTEPADS_SEARCH_PATH NOTEPADS_SEARCH_ROOT
-  NOTEPADS_SEARCH_PATH="${1}"
-  [ -z "${NOTEPADS_SEARCH_PATH}" ] || NOTEPADS_SEARCH_PATH="/"
-  NOTEPADS_SEARCH_ROOT=$(_shellb_notepad_calc_search_path "${1}")
+  _shellb_notepad_list_with_suffix "${1}" "\n"
+}
 
-  while read -r notepadfile
-  do
-    # display only the part of the path that is not the notepad directory
-    if [[ "${NOTEPADS_SEARCH_PATH}" = "/" ]]; then
-      printf "%s\n" ".${notepadfile#${NOTEPADS_SEARCH_ROOT}}"
-    else
-      printf "%s\n" "${notepadfile#${NOTEPADS_SEARCH_ROOT}}"
-    fi
-  done < <(find "${NOTEPADS_SEARCH_ROOT}" -name "${_SHELLB_CFG_NOTE_FILE}" || _shellb_print_err "notepad list column failed, is ${_SHELLB_DB_NOTEPADS} accessible?" || return 1)
+function _shellb_notepad_list_row() {
+  _shellb_notepad_list_with_suffix "${1}" "  "  && echo ""
 }
 
 function _shellb_notepad_list_print_menu() {
-  local i=1
+  [ -n "${1}" ] || _shellb_print_err "notepads list_print_menu failed, search top not given" || return 1
+
+  local NOTEPADS_SEEN i=1
+  NOTEPADS_SEEN=0
   while read -r notepadfile
   do
+    NOTEPADS_SEEN=1
     # display only the part of the path that is not the notepad directory
-    printf "%3s. %s\n" "${i}" "${notepadfile#${_SHELLB_DB_NOTES}}"
+    printf "%3s) %s\n" "${i}" "${notepadfile}"
     i=$(($i+1))
-  done < <(_shellb_notepad_list_column "${1}")
+  done < <(_shellb_notepad_list_column "${1}") || return 1
+
+  # if no notepads seen, return error
+  [ "${NOTEPADS_SEEN}" -eq 1 ] || return 1
 }
 
 function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
-  _shellb_print_nfo "available notepads:"
-  _shellb_notepad_list_print_menu "${1}"
+  local NOTEPADS_LIST
+  NOTEPADS_LIST=$(_shellb_notepad_list_print_menu "${1:-./}") || _shellb_print_err "no notepads under \"${1:-/}\"" || return 1
+  _shellb_print_nfo "notepads under \"${1:-./}\":"
+  echo "${NOTEPADS_LIST}"
 }
 
 function shellb_notepad_list_edit() {
