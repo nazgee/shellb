@@ -68,7 +68,7 @@ _SHELLB_CFG_RC_DEFAULT=\
  shellb_func_notepad_list = npl
  shellb_func_notepad_del  = npd
  shellb_func_notepad_get  = npg
- shellb_func_notepad_calc = npc
+ shellb_func_notepad_path = npp
  shellb_func_notepad_delall  = npda
 
  ## notepad config
@@ -310,47 +310,40 @@ function _shellb_bookmark_completions() {
 ###############################################
 # notepad functions
 ###############################################
-# displays directory of notepad file for current directory
+# displays directory of notepad file for given or current directory
 # always succeeds (even if no notepad is created yet)
 function _shellb_notepad_calc_dir() {
-  _shellb_print_dbg "_shellb_notepad_calc_dir()"
-  echo "${_SHELLB_DB_NOTES}$(pwd)"
+  _shellb_print_dbg "_shellb_notepad_calc_dir($*)"
+  echo "${_SHELLB_DB_NOTES}$(realpath "${1:-.}")"
 }
 
-# displays path to notepad file for current directory
+# displays path to notepad file for given or current directory
 # always succeeds (even if no notepad is created yet)
-function shellb_notepad_calc() {
-  _shellb_print_dbg "_shellb_notepad_calc_file()"
-  echo "$(_shellb_notepad_calc_dir)/${_SHELLB_CFG_NOTE_FILE}"
+function shellb_notepad_path() {
+  _shellb_print_dbg "shellb_notepad_path($*)"
+  echo "$(_shellb_notepad_calc_dir "${1}")/${_SHELLB_CFG_NOTE_FILE}"
 }
 
-# displays path to notepad file for current directory
+# displays path to notepad file for given or current directory
 # will fail if no notepad is created yet
 function shellb_notepad_get() {
   _shellb_print_dbg "shellb_notepad_get()"
-  [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad get failed, no notepad for this dir" || return 1
-  _shellb_notepad_calc_file
+  [ -e "$(shellb_notepad_path "${1}")" ] || _shellb_print_err "notepad get failed, no \"${1}\" notepad" || return 1
+  shellb_notepad_path "${1}"
 }
 
 # opens a notepad for current directory in
 function shellb_notepad_edit() {
   _shellb_print_dbg "shellb_notepad_edit($*)"
-  mkdir -p "$(_shellb_notepad_calc_dir)" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
-  "${shellb_cfg_notepad_editor}" "$(_shellb_notepad_calc_file)"
+  mkdir -p "$(_shellb_notepad_calc_dir "${1}")" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
+  "${shellb_cfg_notepad_editor}" "$(shellb_notepad_path "${1}")"
 }
 
 function shellb_notepad_show() {
   _shellb_print_dbg "shellb_notepad_show($*)"
-  [ -e "$(_shellb_notepad_calc_file)" ] || _shellb_print_err "notepad show failed, no notepad for this dir" || return 1
-  [ -s "$(_shellb_notepad_calc_file)" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
-  cat "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
-}
-
-function _shellb_notepad_calc_search_path() {
-  [ -n "${1}" ] || _shellb_print_err "notepads calc_search_path, search top not given" || return 1
-
-  # calculate search directory for notepads under $1
-  realpath "${_SHELLB_DB_NOTES}/$(realpath "${1}")"
+  [ -e "$(shellb_notepad_path "${1}")" ] || _shellb_print_err "notepad show failed, no \"${1}\" notepad" || return 1
+  [ -s "$(shellb_notepad_path "${1}")" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
+  cat "$(shellb_notepad_path "${1}")" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
 }
 
 function _shellb_notepad_list_with_suffix() {
@@ -358,7 +351,7 @@ function _shellb_notepad_list_with_suffix() {
 
   local NOTEPADS_TOP NOTEPADS_SEARCH
   NOTEPADS_TOP="${1}"
-  NOTEPADS_SEARCH=$(_shellb_notepad_calc_search_path "${1}")
+  NOTEPADS_SEARCH=$(_shellb_notepad_calc_dir "${1}")
   [ -d "${NOTEPADS_SEARCH}" ] || return 1
 
   local NOTEPADS_SEEN
@@ -367,11 +360,7 @@ function _shellb_notepad_list_with_suffix() {
   do
     NOTEPADS_SEEN=1
     # display only the part of the path that is not the notepad directory
-    if [[ "${NOTEPADS_TOP}" = "/" ]]; then
-      printf "%s%b" "${notepadfile#${NOTEPADS_SEARCH}}" "${2}"
-    else
-      printf "%s%b" ".${notepadfile#${NOTEPADS_SEARCH}}" "${2}"
-    fi
+    printf "%s%b" "$(realpath --relative-to "${NOTEPADS_SEARCH}" "${notepadfile}")" "${2}"
   done < <(find "${NOTEPADS_SEARCH}" -name "${_SHELLB_CFG_NOTE_FILE}" 2>/dev/null) || _shellb_print_err "notepad list column failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
 
   # if no notepads seen, return error
@@ -407,7 +396,11 @@ function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
   local NOTEPADS_LIST
   NOTEPADS_LIST=$(_shellb_notepad_list_print_menu "${1:-./}") || _shellb_print_err "no notepads under \"${1:-/}\"" || return 1
-  _shellb_print_nfo "notepads under \"${1:-./}\":"
+  if [ "${1}" = "/" ]; then
+    _shellb_print_nfo "all notepads:"
+  else
+    _shellb_print_nfo "notepads under \"${1:-.}\":"
+  fi
   echo "${NOTEPADS_LIST}"
 }
 
@@ -432,17 +425,17 @@ function shellb_notepad_delall() {
 ###############################################
 function _shellb_notepad_completions() {
   _shellb_print_wrn "notepad completions not implemented yet"
-#  local cur prev opts
-#
-#  # reset COMPREPLY, as it's global and may have been set in previous invocation
-#  COMPREPLY=()
-#  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
-#  prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-#  opts="$(_shellb_bookmarks_row "")" # fetch full list of bookmarks, compgen will filter it
-#
-#  # if cur is empty, we're completing bookmark name
-#  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-#  return 0
+  local cur prev opts
+
+  # reset COMPREPLY, as it's global and may have been set in previous invocation
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+  prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
+  opts="$(_shellb_notepad_list_row "")" # fetch full list of bookmarks, compgen will filter it
+
+  # if cur is empty, we're completing bookmark name
+  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+  return 0
 }
 
 ###############################################
@@ -484,7 +477,7 @@ eval "function ${shellb_func_notepad_show}()        { (shellb_notepad_show      
 eval "function ${shellb_func_notepad_list}()        { (shellb_notepad_list        \"\$@\";) }"
 eval "function ${shellb_func_notepad_del}()         { (shellb_notepad_del         \"\$@\";) }"
 eval "function ${shellb_func_notepad_get}()         { (shellb_notepad_get         \"\$@\";) }"
-eval "function ${shellb_func_notepad_calc}()        { (shellb_notepad_calc        \"\$@\";) }"
+eval "function ${shellb_func_notepad_path}()        { (shellb_notepad_path        \"\$@\";) }"
 eval "function ${shellb_func_notepad_delall}()      { (shellb_notepad_delall      \"\$@\";) }"
 
 ###############################################
