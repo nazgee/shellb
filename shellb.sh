@@ -402,6 +402,8 @@ function shellb_completions_install() {
   complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_short}"
   complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_long}"
   complete -F _shellb_bookmark_completions "${shellb_func_bookmark_goto}"
+  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_list_long}"
+  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_list_short}"
 }
 
 # install completions when we're sourced
