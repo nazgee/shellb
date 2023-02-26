@@ -50,26 +50,26 @@ _SHELLB_CFG_NOTE_FILE="note.md"
 
 _SHELLB_CFG_RC_DEFAULT=\
 '# core functions
-shellb_cmd_core_help = h
+shellb_func_core_help = h
 
 # bookmark functions
-shellb_cmd_bookmark_set = s
-shellb_cmd_bookmark_del = r
-shellb_cmd_bookmark_get_short = ds
-shellb_cmd_bookmark_get_long = d
-shellb_cmd_bookmark_goto = g
-shellb_cmd_bookmark_list_short = sls
-shellb_cmd_bookmark_list_long = sl
-shellb_cmd_bookmark_list_purge = slp
+shellb_func_bookmark_set = s
+shellb_func_bookmark_del = r
+shellb_func_bookmark_get_short = ds
+shellb_func_bookmark_get_long = d
+shellb_func_bookmark_goto = g
+shellb_func_bookmark_list_short = sls
+shellb_func_bookmark_list_long = sl
+shellb_func_bookmark_list_purge = slp
 
 # notepad functions
-shellb_cmd_notepad_edit = npe
-shellb_cmd_notepad_show = nps
-shellb_cmd_notepad_list = npl
-shellb_cmd_notepad_del  = npd
-shellb_cmd_notepad_get  = npg
-shellb_cmd_notepad_calc = npc
-shellb_cmd_notepad_delall  = npda
+shellb_func_notepad_edit = npe
+shellb_func_notepad_show = nps
+shellb_func_notepad_list = npl
+shellb_func_notepad_del  = npd
+shellb_func_notepad_get  = npg
+shellb_func_notepad_calc = npc
+shellb_func_notepad_delall  = npda
 
 # command functions
 
@@ -243,14 +243,15 @@ function shellb_bookmark_list_long() {
   while read -r bookmark
   do
     shellb_bookmark_get_long "${bookmark}"
-  done < <(_shellb_bookmarks_column)
+  done < <(_shellb_bookmarks_column "${1}")
 }
 
 function shellb_bookmark_list_short() {
   _shellb_print_dbg "shellb_bookmark_list_short(${1})"
 
   # just display bookmark names using ls, as it looks nice enough
-  ls "${_SHELLB_DB_BOOKMARKS}"
+  cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "list bookmarks failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  ls "${1}"*
 }
 
 function shellb_bookmark_list_purge() {
@@ -289,7 +290,7 @@ function _shellb_bookmark_completions() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
   prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-  opts="$(_shellb_bookmarks_row)" # fetch current list of bookmarks
+  opts="$(_shellb_bookmarks_row "")" # fetch full list of bookmarks, compgen will filter it
 
   # if cur is empty, we're completing bookmark name
   COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -366,36 +367,36 @@ function shellb_core_help() {
 # to avoid polluting current shell with any side effects of shellb_ functions
 
 #core functions
-eval "${shellb_cmd_core_help}()                    { (shellb_core_help           \$@;) }"
+eval "${shellb_func_core_help}()                    { (shellb_core_help           \$@;) }"
 
 # bookmark functions
-eval "function ${shellb_cmd_bookmark_set}()        { (shellb_bookmark_set      \"\$@\";) }"
-eval "function ${shellb_cmd_bookmark_del}()        { (shellb_bookmark_del        \$@;) }"
-eval "function ${shellb_cmd_bookmark_get_short}()  { (shellb_bookmark_get_short  \$@;) }"
-eval "function ${shellb_cmd_bookmark_get_long}()   { (shellb_bookmark_get_long   \$@;) }"
-eval "function ${shellb_cmd_bookmark_goto}()       {  shellb_bookmark_goto       \$@;  }" # no subshell, we need side effects
-eval "function ${shellb_cmd_bookmark_list_short}() { (shellb_bookmark_list_short \$@;) }"
-eval "function ${shellb_cmd_bookmark_list_long}()  { (shellb_bookmark_list_long  \$@;) }"
-eval "function ${shellb_cmd_bookmark_list_purge}() { (shellb_bookmark_list_purge \$@;) }"
+eval "function ${shellb_func_bookmark_set}()        { (shellb_bookmark_set      \"\$@\";) }"
+eval "function ${shellb_func_bookmark_del}()        { (shellb_bookmark_del        \$@;) }"
+eval "function ${shellb_func_bookmark_get_short}()  { (shellb_bookmark_get_short  \$@;) }"
+eval "function ${shellb_func_bookmark_get_long}()   { (shellb_bookmark_get_long   \$@;) }"
+eval "function ${shellb_func_bookmark_goto}()       {  shellb_bookmark_goto       \$@;  }" # no subshell, we need side effects
+eval "function ${shellb_func_bookmark_list_short}() { (shellb_bookmark_list_short \$@;) }"
+eval "function ${shellb_func_bookmark_list_long}()  { (shellb_bookmark_list_long  \$@;) }"
+eval "function ${shellb_func_bookmark_list_purge}() { (shellb_bookmark_list_purge \$@;) }"
 
 # command functions
-eval "function ${shellb_cmd_notepad_edit}()        { (shellb_notepad_edit      \"\$@\";) }"
-eval "function ${shellb_cmd_notepad_show}()        { (shellb_notepad_show      \"\$@\";) }"
-eval "function ${shellb_cmd_notepad_list}()        { (shellb_notepad_list      \"\$@\";) }"
-eval "function ${shellb_cmd_notepad_del}()         { (shellb_notepad_del       \"\$@\";) }"
-eval "function ${shellb_cmd_notepad_get}()         { (shellb_notepad_get       \"\$@\";) }"
-eval "function ${shellb_cmd_notepad_calc}()        { (shellb_notepad_calc      \"\$@\";) }"
-eval "function ${shellb_cmd_notepad_delall}()      { (shellb_notepad_delall    \"\$@\";) }"
+eval "function ${shellb_func_notepad_edit}()        { (shellb_notepad_edit      \"\$@\";) }"
+eval "function ${shellb_func_notepad_show}()        { (shellb_notepad_show      \"\$@\";) }"
+eval "function ${shellb_func_notepad_list}()        { (shellb_notepad_list      \"\$@\";) }"
+eval "function ${shellb_func_notepad_del}()         { (shellb_notepad_del       \"\$@\";) }"
+eval "function ${shellb_func_notepad_get}()         { (shellb_notepad_get       \"\$@\";) }"
+eval "function ${shellb_func_notepad_calc}()        { (shellb_notepad_calc      \"\$@\";) }"
+eval "function ${shellb_func_notepad_delall}()      { (shellb_notepad_delall    \"\$@\";) }"
 
 ###############################################
 # completions for shortcuts
 # (shortcuts prefixed with _)
 ###############################################
 function shellb_completions_install() {
-  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_del}"
-  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_get_short}"
-  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_get_long}"
-  complete -F _shellb_bookmark_completions "${shellb_cmd_bookmark_goto}"
+  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_del}"
+  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_short}"
+  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_long}"
+  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_goto}"
 }
 
 # install completions when we're sourced
