@@ -39,7 +39,7 @@ _SHELLB_SYMBOL_CHECK="\u2714"
 _SHELLB_SYMBOL_CROSS="\u2716"
 
 # config
-_SHELLB_CFG_DEBUG=1
+_SHELLB_CFG_DEBUG=0
 _SHELLB_CFG_COLOR_NFO=""
 _SHELLB_CFG_COLOR_WRN=${_SHELLB_COLOR_YELLOW_B}
 _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
@@ -100,11 +100,11 @@ function _shellb_print_err() {
 }
 
 function _shellb_print_keyvalue_ok() {
-  printf "${_SHELLB_CFG_SYMBOL_CHECK} %-15s: %s\n" "${1}" "${2}"
+  printf "${_SHELLB_CFG_SYMBOL_CHECK} %-18s: %s\n" "${1}" "${2}"
 }
 
 function _shellb_print_keyvalue_err() {
-  printf "${_SHELLB_CFG_SYMBOL_CROSS} %-15s: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
+  printf "${_SHELLB_CFG_SYMBOL_CROSS} %-18s: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
 }
 
 ###############################################
@@ -398,6 +398,7 @@ eval "function ${shellb_func_notepad_delall}()      { (shellb_notepad_delall    
 # (shortcuts prefixed with _)
 ###############################################
 function shellb_completions_install() {
+  complete -o nospace -F _shellb_bookmark_completions "${shellb_func_bookmark_set}"
   complete -F _shellb_bookmark_completions "${shellb_func_bookmark_del}"
   complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_short}"
   complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_long}"
