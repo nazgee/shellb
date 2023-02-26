@@ -99,14 +99,6 @@ function _shellb_print_err() {
   return 1
 }
 
-function _shellb_print_keyvalue_ok() {
-  printf "${_SHELLB_CFG_SYMBOL_CHECK} %-18s: %s\n" "${1}" "${2}"
-}
-
-function _shellb_print_keyvalue_err() {
-  printf "${_SHELLB_CFG_SYMBOL_CROSS} %-18s: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
-}
-
 ###############################################
 # init
 ###############################################
@@ -167,6 +159,23 @@ function _shellb_bookmark_get() {
   fi
 }
 
+function _shellb_bookmark_print_long_alive() {
+  printf "${_SHELLB_CFG_SYMBOL_CHECK} %-18s: %s\n" "${1}" "${2}"
+}
+
+function _shellb_bookmark_print_long_dangling() {
+  printf "${_SHELLB_CFG_SYMBOL_CROSS} %-18s: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
+}
+
+function _shellb_bookmark_print_long() {
+  # check if TARGET is "alive" or "dangling"
+  if [[ -d "${2}" ]]; then
+    _shellb_bookmark_print_long_alive "${1}" "${2}"
+  else
+    _shellb_bookmark_print_long_dangling "${1}" "${2}"
+  fi
+}
+
 function shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
 
@@ -194,7 +203,7 @@ function shellb_bookmark_set() {
 function shellb_bookmark_del() {
   _shellb_print_dbg "shellb_bookmark_del(${1})"
 
-  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "del bookmark failed, unknown bookmark" || return 1
+  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
   rm "${_SHELLB_DB_BOOKMARKS}/${1}" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
@@ -214,13 +223,7 @@ function shellb_bookmark_get_long() {
   # check if bookmark is known, and save it in TARGET
   local TARGET
   TARGET=$(shellb_bookmark_get_short "$1") || return 1 # error message already printed
-
-  # check if TARGET is "alive" or "dangling"
-  if [[ -d "${TARGET}" ]]; then
-    _shellb_print_keyvalue_ok "${1}" "${TARGET}"
-  else
-    _shellb_print_keyvalue_err "${1}" "${TARGET}"
-  fi
+  _shellb_bookmark_print_long "${1}" "${TARGET}"
 }
 
 function shellb_bookmark_goto() {
@@ -230,7 +233,7 @@ function shellb_bookmark_goto() {
   [ -n "${1}" ] || _shellb_print_err "goto bookmark failed, no bookmark name given" || return 1
 
   # check if given bookmark exists
-  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "goto bookmark failed, unknown bookmark" || return 1
+  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
 
   # get bookmarked directory
   local TARGET
@@ -273,7 +276,7 @@ function shellb_bookmark_list_purge() {
     # delete any target that does not exist
     # and print a banner message if any bookmark was deleted
     if [[ ! -e "${TARGET}" ]]; then
-      [ ${PURGED} -eq 0 ] && _shellb_print_nfo "purged bookmarks:"
+      [ ${PURGED} -eq 0 ] && _shellb_print_nfo "purged \"dead\" bookmarks:"
       shellb_bookmark_del "${bookmark}"
       PURGED=1
     fi
@@ -282,7 +285,7 @@ function shellb_bookmark_list_purge() {
     TARGET=""
   done < <(_shellb_bookmarks_column)
 
-  [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged"
+  [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were alive)"
 }
 
 ###############################################
@@ -372,26 +375,26 @@ function shellb_core_help() {
 # to avoid polluting current shell with any side effects of shellb_ functions
 
 #core functions
-eval "${shellb_func_core_help}()                    { (shellb_core_help           \$@;) }"
+eval "${shellb_func_core_help}()                    { (shellb_core_help           \"\$@\";) }"
 
 # bookmark functions
-eval "function ${shellb_func_bookmark_set}()        { (shellb_bookmark_set      \"\$@\";) }"
-eval "function ${shellb_func_bookmark_del}()        { (shellb_bookmark_del        \$@;) }"
-eval "function ${shellb_func_bookmark_get_short}()  { (shellb_bookmark_get_short  \$@;) }"
-eval "function ${shellb_func_bookmark_get_long}()   { (shellb_bookmark_get_long   \$@;) }"
-eval "function ${shellb_func_bookmark_goto}()       {  shellb_bookmark_goto       \$@;  }" # no subshell, we need side effects
-eval "function ${shellb_func_bookmark_list_short}() { (shellb_bookmark_list_short \$@;) }"
-eval "function ${shellb_func_bookmark_list_long}()  { (shellb_bookmark_list_long  \$@;) }"
-eval "function ${shellb_func_bookmark_list_purge}() { (shellb_bookmark_list_purge \$@;) }"
+eval "function ${shellb_func_bookmark_set}()        { (shellb_bookmark_set        \"\$@\";) }"
+eval "function ${shellb_func_bookmark_del}()        { (shellb_bookmark_del        \"\$@\";) }"
+eval "function ${shellb_func_bookmark_get_short}()  { (shellb_bookmark_get_short  \"\$@\";) }"
+eval "function ${shellb_func_bookmark_get_long}()   { (shellb_bookmark_get_long   \"\$@\";) }"
+eval "function ${shellb_func_bookmark_goto}()       {  shellb_bookmark_goto       \"\$@\";  }" # no subshell, we need goto side effects
+eval "function ${shellb_func_bookmark_list_short}() { (shellb_bookmark_list_short \"\$@\";) }"
+eval "function ${shellb_func_bookmark_list_long}()  { (shellb_bookmark_list_long  \"\$@\";) }"
+eval "function ${shellb_func_bookmark_list_purge}() { (shellb_bookmark_list_purge \"\$@\";) }"
 
 # command functions
-eval "function ${shellb_func_notepad_edit}()        { (shellb_notepad_edit      \"\$@\";) }"
-eval "function ${shellb_func_notepad_show}()        { (shellb_notepad_show      \"\$@\";) }"
-eval "function ${shellb_func_notepad_list}()        { (shellb_notepad_list      \"\$@\";) }"
-eval "function ${shellb_func_notepad_del}()         { (shellb_notepad_del       \"\$@\";) }"
-eval "function ${shellb_func_notepad_get}()         { (shellb_notepad_get       \"\$@\";) }"
-eval "function ${shellb_func_notepad_calc}()        { (shellb_notepad_calc      \"\$@\";) }"
-eval "function ${shellb_func_notepad_delall}()      { (shellb_notepad_delall    \"\$@\";) }"
+eval "function ${shellb_func_notepad_edit}()        { (shellb_notepad_edit        \"\$@\";) }"
+eval "function ${shellb_func_notepad_show}()        { (shellb_notepad_show        \"\$@\";) }"
+eval "function ${shellb_func_notepad_list}()        { (shellb_notepad_list        \"\$@\";) }"
+eval "function ${shellb_func_notepad_del}()         { (shellb_notepad_del         \"\$@\";) }"
+eval "function ${shellb_func_notepad_get}()         { (shellb_notepad_get         \"\$@\";) }"
+eval "function ${shellb_func_notepad_calc}()        { (shellb_notepad_calc        \"\$@\";) }"
+eval "function ${shellb_func_notepad_delall}()      { (shellb_notepad_delall      \"\$@\";) }"
 
 ###############################################
 # completions for shortcuts
