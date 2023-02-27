@@ -39,6 +39,7 @@ _SHELLB_SYMBOL_CHECK="\u2714"
 _SHELLB_SYMBOL_CROSS="\u2716"
 
 # config
+# TODO try not clashing with themes
 _SHELLB_CFG_DEBUG=0
 _SHELLB_CFG_COLOR_NFO=""
 _SHELLB_CFG_COLOR_WRN=${_SHELLB_COLOR_YELLOW_B}
@@ -49,34 +50,38 @@ _SHELLB_CFG_LOG_PREFIX="shellb | "
 _SHELLB_CFG_NOTE_FILE="note.md"
 
 _SHELLB_CFG_RC_DEFAULT=\
-'## core functions
- shellb_func_core_help = h
+'## notepad config
+#  in debian distros, "editor" is a default cmdline editor
+#  feel free to force "vim", "nano" or "whateveryouwant"
+shellb_cfg_notepad_editor = editor
 
- ## bookmark functions
- shellb_func_bookmark_set = s
- shellb_func_bookmark_del = r
- shellb_func_bookmark_get_short = ds
- shellb_func_bookmark_get_long = d
- shellb_func_bookmark_goto = g
- shellb_func_bookmark_list_short = sls
- shellb_func_bookmark_list_long = sl
- shellb_func_bookmark_list_purge = slp
+## core functions
+shellb_func_core_help = h
 
- ## notepad functions
- shellb_func_notepad_edit = npe
- shellb_func_notepad_show = nps
- shellb_func_notepad_list = npl
- shellb_func_notepad_del  = npd
- shellb_func_notepad_get  = npg
- shellb_func_notepad_path = npp
- shellb_func_notepad_delall  = npda
+## primary/basic bookmark functions
+shellb_func_bookmark_set = s
+shellb_func_bookmark_del = r
+shellb_func_bookmark_get = d
+shellb_func_bookmark_goto = g
+shellb_func_bookmark_list = sl
+shellb_func_bookmark_list_purge = slp
+# secondary/advanced bookmark functions
+shellb_func_bookmark_get_short = ds
+shellb_func_bookmark_list_short = sls
 
- ## notepad config
- #  in debian distros, "editor" is a default cmdline editor
- #  feel free to force "vim", "nano" or "whateveryouwant"
- shellb_cfg_notepad_editor = editor
+## primary/basic notepad functions
+shellb_func_notepad_edit = npe
+shellb_func_notepad_show = nps
+shellb_func_notepad_show_recurse = npsr
+shellb_func_notepad_list = npl
+shellb_func_notepad_del  = npd
+shellb_func_notepad_delall  = npda
+# secondary/advanced notepad functions
+shellb_func_notepad_get  = npg
+shellb_func_notepad_path = npp
 
- ## command functions
+## primary/basic command functions
+# secondar/advance command functions
 '
 
 
@@ -141,14 +146,14 @@ function _shellb_bookmarks_column() {
   # list bookmarks in a row (line by line)
   # we do it in subshell to avoid changing directory for whoever called us
     ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
-      ls -1 "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks matching \"${1}\" found" || return 1)
+      ls -1 "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks starting with \"${1}\" found" || return 1)
 }
 
 function _shellb_bookmarks_row() {
   # list bookmarks in a single line
   # we do it in subshell to avoid changing directory for whoever called us
   ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
-    ls -x "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks matching \"${1}\" found" || return 1 )
+    ls -x "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks  starting with \"${1}\" found" || return 1 )
 }
 
 function _shellb_bookmark_get() {
@@ -184,7 +189,7 @@ function shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
 
   # check if bookmark name is given
-  [ -n "${1}" ] || _shellb_print_err "set bookmark failed, bookmark name can't be empty" || return 1
+  [ -n "${1}" ] || _shellb_print_err "set bookmark failed, no bookmark name given" || return 1
 
   # if second arg is not given, bookmark current directory
   local TARGET
@@ -206,7 +211,8 @@ function shellb_bookmark_set() {
 
 function shellb_bookmark_del() {
   _shellb_print_dbg "shellb_bookmark_del(${1})"
-
+  # check if bookmark name is given
+  [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
   [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
   rm "${_SHELLB_DB_BOOKMARKS}/${1}" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
@@ -328,7 +334,7 @@ function shellb_notepad_path() {
 # will fail if no notepad is created yet
 function shellb_notepad_get() {
   _shellb_print_dbg "shellb_notepad_get()"
-  [ -e "$(shellb_notepad_path "${1}")" ] || _shellb_print_err "notepad get failed, no \"${1}\" notepad" || return 1
+  [ -e "$(shellb_notepad_path "${1}")" ] || _shellb_print_err "notepad get failed, no \"${1:-.}\" notepad" || return 1
   shellb_notepad_path "${1}"
 }
 
@@ -341,18 +347,32 @@ function shellb_notepad_edit() {
 
 function shellb_notepad_show() {
   _shellb_print_dbg "shellb_notepad_show($*)"
-  [ -e "$(shellb_notepad_path "${1}")" ] || _shellb_print_err "notepad show failed, no \"${1}\" notepad" || return 1
-  [ -s "$(shellb_notepad_path "${1}")" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
-  cat "$(shellb_notepad_path "${1}")" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
+  local notepad
+  notepad="$(realpath "${1:-.}")"
+  [ -e "$(shellb_notepad_path "${notepad}")" ] || _shellb_print_err "notepad show failed, no \"${notepad}\" notepad" || return 1
+  [ -s "$(shellb_notepad_path "${notepad}")" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
+  _shellb_print_nfo "\"${notepad}\" notepad:"
+  cat "$(shellb_notepad_path "${notepad}")" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
+}
+
+function shellb_notepad_show_recurse() {
+  _shellb_print_dbg "shellb_notepad_show_recurse($*)"
+
+  local notepads_column notepads_path
+  notepads_path="${1:-.}"
+  notepads_column="$(_shellb_notepad_list_row "${notepads_path}")"
+  for notepad in ${notepads_column}; do
+    shellb_notepad_show "$(dirname "${notepads_path}/${notepad}")"
+  done
 }
 
 function _shellb_notepad_list_with_suffix() {
   [ -n "${1}" ] || _shellb_print_err "notepads list_with_suffix, search top not given" || return 1
 
-  local NOTEPADS_TOP NOTEPADS_SEARCH
-  NOTEPADS_TOP="${1}"
-  NOTEPADS_SEARCH=$(_shellb_notepad_calc_dir "${1}")
-  [ -d "${NOTEPADS_SEARCH}" ] || return 1
+  local notepads_top notepads_search
+  notepads_top="${1}"
+  notepads_search=$(_shellb_notepad_calc_dir "${notepads_top}")
+  [ -d "${notepads_search}" ] || return 1
 
   local NOTEPADS_SEEN
   NOTEPADS_SEEN=0
@@ -360,8 +380,8 @@ function _shellb_notepad_list_with_suffix() {
   do
     NOTEPADS_SEEN=1
     # display only the part of the path that is not the notepad directory
-    printf "%s%b" "$(realpath --relative-to "${NOTEPADS_SEARCH}" "${notepadfile}")" "${2}"
-  done < <(find "${NOTEPADS_SEARCH}" -name "${_SHELLB_CFG_NOTE_FILE}" 2>/dev/null) || _shellb_print_err "notepad list column failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
+    printf "%s%b" "$(realpath --relative-to "${notepads_search}" "${notepadfile}")" "${2}"
+  done < <(find "${notepads_search}" -name "${_SHELLB_CFG_NOTE_FILE}" 2>/dev/null) || _shellb_print_err "notepad list column failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
 
   # if no notepads seen, return error
   [ "${NOTEPADS_SEEN}" -eq 1 ] || return 1
@@ -395,9 +415,9 @@ function _shellb_notepad_list_print_menu() {
 function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
   local NOTEPADS_LIST
-  NOTEPADS_LIST=$(_shellb_notepad_list_print_menu "${1:-./}") || _shellb_print_err "no notepads under \"${1:-/}\"" || return 1
+  NOTEPADS_LIST=$(_shellb_notepad_list_print_menu "${1:-.}") || _shellb_print_err "notepad list failed, no notepads under \"${1:-.}\"" || return 1
   if [ "${1}" = "/" ]; then
-    _shellb_print_nfo "all notepads:"
+    _shellb_print_nfo "all notepads (under \"/\"):"
   else
     _shellb_print_nfo "notepads under \"${1:-.}\":"
   fi
@@ -410,8 +430,8 @@ function shellb_notepad_list_edit() {
 
 function shellb_notepad_del() {
   _shellb_print_dbg "shellb_notepad_del($*)"
-  rm "$(_shellb_notepad_calc_file)" || _shellb_print_err "notepad del failed, no notepad fot this dir" || return 1
-  _shellb_print_nfo "notepad deleted"
+  rm "$(shellb_notepad_path "${1:-.}")" || _shellb_print_err "notepad del failed, no \"${1:-.}\" notepad" || return 1
+  _shellb_print_nfo "$(shellb_notepad_path "${1}") notepade deleted"
 }
 
 function shellb_notepad_delall() {
@@ -424,14 +444,36 @@ function shellb_notepad_delall() {
 # notepad completion functions
 ###############################################
 function _shellb_notepad_completions() {
-  _shellb_print_wrn "notepad completions not implemented yet"
-  local cur prev opts
+  local cur prev opts notepads_column
 
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
   prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-  opts="$(_shellb_notepad_list_row "")" # fetch full list of bookmarks, compgen will filter it
+
+  notepads_column="$(_shellb_notepad_list_column "/")"
+  for notepad in ${notepads_column}; do
+    opts="${opts} $(realpath --relative-to "$(pwd)" "$(dirname "/${notepad}")") $(dirname "/${notepad}")"
+  done
+
+  # if cur is empty, we're completing bookmark name
+  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+  return 0
+}
+
+function _shellb_notepad_completions_all() {
+  local cur prev opts notepads_column
+
+  # reset COMPREPLY, as it's global and may have been set in previous invocation
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+  prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
+
+  notepads_column="$(_shellb_notepad_list_column "/")"
+  for notepad in ${notepads_column}; do
+    opts="${opts} $(realpath --relative-to "$(pwd)" "$(dirname "/${notepad}")") $(dirname "/${notepad}")"
+  done
+  opts="${opts} /"
 
   # if cur is empty, we're completing bookmark name
   COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
@@ -461,37 +503,47 @@ function shellb_core_help() {
 #core functions
 eval "${shellb_func_core_help}()                    { (shellb_core_help           \"\$@\";) }"
 
-# bookmark functions
+# primary/basic bookmark functions
 eval "function ${shellb_func_bookmark_set}()        { (shellb_bookmark_set        \"\$@\";) }"
 eval "function ${shellb_func_bookmark_del}()        { (shellb_bookmark_del        \"\$@\";) }"
-eval "function ${shellb_func_bookmark_get_short}()  { (shellb_bookmark_get_short  \"\$@\";) }"
-eval "function ${shellb_func_bookmark_get_long}()   { (shellb_bookmark_get_long   \"\$@\";) }"
+eval "function ${shellb_func_bookmark_get}()        { (shellb_bookmark_get_long   \"\$@\";) }"
 eval "function ${shellb_func_bookmark_goto}()       {  shellb_bookmark_goto       \"\$@\";  }" # no subshell, we need goto side effects
-eval "function ${shellb_func_bookmark_list_short}() { (shellb_bookmark_list_short \"\$@\";) }"
-eval "function ${shellb_func_bookmark_list_long}()  { (shellb_bookmark_list_long  \"\$@\";) }"
+eval "function ${shellb_func_bookmark_list}()       { (shellb_bookmark_list_long  \"\$@\";) }"
 eval "function ${shellb_func_bookmark_list_purge}() { (shellb_bookmark_list_purge \"\$@\";) }"
+# secondary/advanced bookmark functions
+eval "function ${shellb_func_bookmark_get_short}()  { (shellb_bookmark_get_short  \"\$@\";) }"
+eval "function ${shellb_func_bookmark_list_short}() { (shellb_bookmark_list_short \"\$@\";) }"
 
-# command functions
-eval "function ${shellb_func_notepad_edit}()        { (shellb_notepad_edit        \"\$@\";) }"
-eval "function ${shellb_func_notepad_show}()        { (shellb_notepad_show        \"\$@\";) }"
-eval "function ${shellb_func_notepad_list}()        { (shellb_notepad_list        \"\$@\";) }"
-eval "function ${shellb_func_notepad_del}()         { (shellb_notepad_del         \"\$@\";) }"
-eval "function ${shellb_func_notepad_get}()         { (shellb_notepad_get         \"\$@\";) }"
-eval "function ${shellb_func_notepad_path}()        { (shellb_notepad_path        \"\$@\";) }"
-eval "function ${shellb_func_notepad_delall}()      { (shellb_notepad_delall      \"\$@\";) }"
+# primary/basic notepad functions
+eval "function ${shellb_func_notepad_edit}()           { (shellb_notepad_edit         \"\$@\";) }"
+eval "function ${shellb_func_notepad_show}()           { (shellb_notepad_show         \"\$@\";) }"
+eval "function ${shellb_func_notepad_show_recurse}  () { (shellb_notepad_show_recurse \"\$@\";) }"
+eval "function ${shellb_func_notepad_list}()           { (shellb_notepad_list         \"\$@\";) }"
+eval "function ${shellb_func_notepad_del}()            { (shellb_notepad_del          \"\$@\";) }"
+eval "function ${shellb_func_notepad_delall}()         { (shellb_notepad_delall       \"\$@\";) }"
+# secondary/advanced notepad functions
+eval "function ${shellb_func_notepad_path}()           { (shellb_notepad_path         \"\$@\";) }"
+eval "function ${shellb_func_notepad_get}()            { (shellb_notepad_get          \"\$@\";) }"
 
 ###############################################
 # completions for shortcuts
 # (shortcuts prefixed with _)
 ###############################################
 function shellb_completions_install() {
+  # bookmarks
   complete -o nospace -F _shellb_bookmark_completions "${shellb_func_bookmark_set}"
-  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_del}"
-  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_short}"
-  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_get_long}"
-  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_goto}"
-  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_list_long}"
-  complete -F _shellb_bookmark_completions "${shellb_func_bookmark_list_short}"
+  complete -F _shellb_bookmark_completions            "${shellb_func_bookmark_del}"
+  complete -F _shellb_bookmark_completions            "${shellb_func_bookmark_get}"
+  complete -F _shellb_bookmark_completions            "${shellb_func_bookmark_get_short}"
+  complete -F _shellb_bookmark_completions            "${shellb_func_bookmark_goto}"
+  complete -F _shellb_bookmark_completions            "${shellb_func_bookmark_list}"
+  complete -F _shellb_bookmark_completions            "${shellb_func_bookmark_list_short}"
+  # notepads
+  complete -F _shellb_notepad_completions             "${shellb_func_notepad_edit}"
+  complete -F _shellb_notepad_completions             "${shellb_func_notepad_show}"
+  complete -F _shellb_notepad_completions_all         "${shellb_func_notepad_show_recurse}"
+  complete -F _shellb_notepad_completions_all         "${shellb_func_notepad_list}"
+  complete -F _shellb_notepad_completions             "${shellb_func_notepad_del}"
 }
 
 # install completions when we're sourced
