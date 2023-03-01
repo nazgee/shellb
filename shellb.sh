@@ -256,10 +256,14 @@ function shellb_bookmark_goto() {
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long(${1})"
 
+
+  local i=0
   # display long form of all bookmarks or only those starting with given string
   while read -r bookmark
   do
+    printf "%3s) " "${i}"
     shellb_bookmark_get_long "${bookmark}"
+    i=$(($i+1))
   done < <(_shellb_bookmarks_column "${1}")
 }
 
@@ -353,6 +357,7 @@ function shellb_notepad_show() {
   [ -s "$(shellb_notepad_path "${notepad}")" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
   _shellb_print_nfo "\"${notepad}\" notepad:"
   cat "$(shellb_notepad_path "${notepad}")" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
+  echo ""
 }
 
 function shellb_notepad_show_recurse() {
