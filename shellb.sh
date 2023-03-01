@@ -158,6 +158,24 @@ function _shellb_core_read_target() {
   esac
 }
 
+# ${1} - shellb domain directory
+# ${2} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_calc_dir() {
+  _shellb_print_dbg "_shellb_core_calc_dir($*)"
+  [ -n "${1}" ] || _shellb_print_err "domain dir can't be empty" || return 1
+  echo "${1}$(realpath "${2:-.}")"
+}
+
+# ${1} - filename
+# ${2} - shellb domain directory
+# ${3} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_calc_file() {
+  _shellb_print_dbg "_shellb_core_calc_file($*)"
+  [ -n "${1}" ] || _shellb_print_err "file name can't be empty" || return 1
+  [ -n "${2}" ] || _shellb_print_err "domain dir can't be empty" || return 1
+  echo "$(_shellb_core_calc_dir "${2}" "${3:-.}")/${1}"
+}
+
 ###############################################
 # bookmark functions
 ###############################################
@@ -353,14 +371,14 @@ function _shellb_bookmark_completions() {
 # always succeeds (even if no notepad is created yet)
 function _shellb_notepad_calc_dir() {
   _shellb_print_dbg "_shellb_notepad_calc_dir($*)"
-  echo "${_SHELLB_DB_NOTES}$(realpath "${1:-.}")"
+  _shellb_core_calc_dir "${_SHELLB_DB_NOTES}" "${1}"
 }
 
 # displays path to notepad file for given or current directory
 # always succeeds (even if no notepad is created yet)
 function shellb_notepad_path() {
   _shellb_print_dbg "shellb_notepad_path($*)"
-  echo "$(_shellb_notepad_calc_dir "${1}")/${_SHELLB_CFG_NOTE_FILE}"
+  _shellb_core_calc_file "${_SHELLB_CFG_NOTE_FILE}" "${_SHELLB_DB_NOTES}" "${1}"
 }
 
 # displays path to notepad file for given or current directory
