@@ -140,6 +140,25 @@ done < "${_SHELLB_RC}"
   || echo "${_SHELLB_CFG_RC_DEFAULT}" > "${_SHELLB_RC}"
 
 ###############################################
+# core functions
+###############################################
+function _shellb_core_read_target() {
+  local list column target
+  list="${1}"
+  column="${2}"
+  read target || return 1
+
+  case $target in
+      ''|*[!0-9]*)
+        echo "${target}"
+        ;;
+      *)
+        target=$(echo "${list}" | sed -n "${target}p" | awk "{print \$${column}}")
+        echo "${target}"
+  esac
+}
+
+###############################################
 # bookmark functions
 ###############################################
 function _shellb_bookmarks_column() {
@@ -256,8 +275,7 @@ function shellb_bookmark_goto() {
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long(${1})"
 
-
-  local i=0
+  local i=1
   # display long form of all bookmarks or only those starting with given string
   while read -r bookmark
   do
@@ -272,6 +290,17 @@ function shellb_bookmark_list_short() {
 
   # display short form of all bookmarks or only those starting with given string
   _shellb_bookmarks_row "${1}"
+}
+
+# TODO add to shotrcuts/config
+function shellb_bookmark_list_goto() {
+  local list target
+  list=$(shellb_bookmark_list_long "${1}") || return 1
+  echo "$list"
+
+  # if number is given by the user, it will be translated to 3rd column
+  target=$(_shellb_core_read_target "$list" "3")
+  shellb_bookmark_goto "${target}"
 }
 
 function shellb_bookmark_list_purge() {
@@ -429,8 +458,21 @@ function shellb_notepad_list() {
   echo "${NOTEPADS_LIST}"
 }
 
+# TODO add to shotrcuts/config
 function shellb_notepad_list_edit() {
-  _shellb_print_wrn "notepad completions not implemented yet"
+  _shellb_print_dbg "shellb_notepad_list($*)"
+  local NOTEPADS_LIST
+  NOTEPADS_LIST=$(_shellb_notepad_list_print_menu "${1:-.}") || _shellb_print_err "notepad list failed, no notepads under \"${1:-.}\"" || return 1
+  if [ "${1}" = "/" ]; then
+    _shellb_print_nfo "all notepads (under \"/\"):"
+  else
+    _shellb_print_nfo "notepads under \"${1:-.}\":"
+  fi
+  echo "${NOTEPADS_LIST}"
+
+  # if number is given by the user, it will be translated to 2nd column
+  target=$(_shellb_core_read_target "$NOTEPADS_LIST" "2")
+  shellb_notepad_edit "${1}${target%"${_SHELLB_CFG_NOTE_FILE}"}"
 }
 
 function shellb_notepad_del() {
