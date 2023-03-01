@@ -47,6 +47,7 @@ _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
 _SHELLB_CFG_SYMBOL_CHECK=${_SHELLB_SYMBOL_CHECK}
 _SHELLB_CFG_SYMBOL_CROSS=${_SHELLB_SYMBOL_CROSS}
 _SHELLB_CFG_LOG_PREFIX="shellb | "
+_SHELLB_CFG_PROTO="shellb://"
 _SHELLB_CFG_NOTE_FILE="note.md"
 
 _SHELLB_CFG_RC_DEFAULT=\
@@ -78,10 +79,9 @@ shellb_func_notepad_del  = npd
 shellb_func_notepad_delall  = npda
 # secondary/advanced notepad functions
 shellb_func_notepad_get  = npg
-shellb_func_notepad_path = npp
 
 ## primary/basic command functions
-# secondar/advance command functions
+# secondary/advanced command functions
 '
 
 
@@ -142,7 +142,7 @@ done < "${_SHELLB_RC}"
 ###############################################
 # core functions
 ###############################################
-function _shellb_core_read_target() {
+function _shellb_core_get_user_selection() {
   local list column target
   list="${1}"
   column="${2}"
@@ -158,10 +158,26 @@ function _shellb_core_read_target() {
   esac
 }
 
+function _shellb_core_get_user_confirmation() {
+  local question reply
+  question="${1}"
+  _shellb_print_nfo "${question} [Y/n]"
+  read reply || return 1
+
+  case $reply in
+      ''|'y'|'Y')
+        return 0
+        ;;
+      'n'|'N'|*)
+        return 1
+        ;;
+  esac
+}
+
 # ${1} - shellb domain directory
 # ${2} - userspace directory (optional, if not provided, current directory is used)
-function _shellb_core_calc_dir() {
-  _shellb_print_dbg "_shellb_core_calc_dir($*)"
+function _shellb_core_calc_absdir() {
+  _shellb_print_dbg "_shellb_core_calc_absdir($*)"
   [ -n "${1}" ] || _shellb_print_err "domain dir can't be empty" || return 1
   echo "${1}$(realpath "${2:-.}")"
 }
@@ -169,13 +185,21 @@ function _shellb_core_calc_dir() {
 # ${1} - filename
 # ${2} - shellb domain directory
 # ${3} - userspace directory (optional, if not provided, current directory is used)
-function _shellb_core_calc_file() {
+function _shellb_core_calc_absfile() {
   _shellb_print_dbg "_shellb_core_calc_file($*)"
   [ -n "${1}" ] || _shellb_print_err "file name can't be empty" || return 1
   [ -n "${2}" ] || _shellb_print_err "domain dir can't be empty" || return 1
-  echo "$(_shellb_core_calc_dir "${2}" "${3:-.}")/${1}"
+  echo "$(_shellb_core_calc_absdir "${2}" "${3:-.}")/${1}"
 }
 
+# ${1} - filename
+# ${2} - shellb domain directory
+function _shellb_core_calc_domainfile() {
+  local file domain
+  file="${1}"
+  domain="${2}"
+  realpath --relative-to "${domain}" "${file}"
+}
 
 # ${1} - shellb domain directory
 # ${2} - files to look for
@@ -183,27 +207,29 @@ function _shellb_core_calc_file() {
 # ${4} - find options
 # ${5} - userspace directory (optional, if not provided, current directory is used)
 function _shellb_core_find_with_suffix() {
-  local root_user root_shellb items_seen results_separator target_glob
-  root_shellb="${1}"
+  local user_dir domain_absdir items_seen results_separator target_glob
+  domain_absdir="${1}"
   target_glob="${2}"
   results_separator="${3}"
   find_options="${4}"
-  root_user="${5}"
+  user_dir="${5}"
 
-  [ -n "${root_user}" ] || _shellb_print_err "_shellb_core_find_with_suffix, search top not given" || return 1
+  [ -n "${user_dir}" ] || _shellb_print_err "_shellb_core_find_with_suffix, search top not given" || return 1
 
-  root_shellb=$(_shellb_core_calc_dir "${root_shellb}" "${root_user}")
+  domain_absdir=$(_shellb_core_calc_absdir "${domain_absdir}" "${user_dir}")
   # if directory does not exist, definitely no results are available -- bail out early
   # to avoid errors from find not being able to start searching
-  [ -d "${root_shellb}" ] || return 1
+  [ -d "${domain_absdir}" ] || return 1
 
   items_seen=0
   while read -r item
   do
     items_seen=1
-    # display only the part of the path that is below root_shellb directory
-    printf "%s%b" "$(realpath --relative-to "${root_shellb}" "${item}")" "${results_separator}"
-  done < <(find "${root_shellb}" ${find_options} -name "${target_glob}" 2>/dev/null || _shellb_print_err "_shellb_core_find_with_suffix, is ${root_shellb} accessible?") || return 1
+    local shellb_file
+    shellb_file=$(_shellb_core_calc_domainfile "${item}" "${domain_absdir}")
+    # display only the part of the path that is below domain_absdir directory
+    printf "%s%b" "${shellb_file}" "${results_separator}"
+  done < <(find "${domain_absdir}" ${find_options} -name "${target_glob}" 2>/dev/null || _shellb_print_err "_shellb_core_find_with_suffix, is ${domain_absdir} accessible?") || return 1
 
   # if no items seen, return error
   [ "${items_seen}" -eq 0 ] || return 1
@@ -241,8 +267,8 @@ function _shellb_core_list_as_column() {
 ###############################################
 # bookmark functions
 ###############################################
-function _shellb_bookmarks_calc_file() {
-  _shellb_core_calc_file "${1}" "${_SHELLB_DB_BOOKMARKS}" "/"
+function _shellb_bookmarks_calc_absfile() {
+  _shellb_core_calc_absfile "${1}" "${_SHELLB_DB_BOOKMARKS}" "/"
 }
 
 function _shellb_bookmarks_column() {
@@ -262,7 +288,7 @@ function _shellb_bookmark_get() {
   _shellb_print_dbg "_shellb_bookmark_get(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || return 1
-  cat "$(_shellb_bookmarks_calc_file "${1}")" 2> /dev/null
+  cat "$(_shellb_bookmarks_calc_absfile "${1}")" 2> /dev/null
 }
 
 function _shellb_bookmark_print_long_alive() {
@@ -300,7 +326,7 @@ function shellb_bookmark_set() {
   [ -e "${TARGET}" ] || _shellb_print_err "set bookmark failed, invalid directory (${TARGET})" || return 1
 
   # build the bookmark file with the contents "$CD directory_path"
-  echo "$TARGET" > "$(_shellb_bookmarks_calc_file "${1}")" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
+  echo "$TARGET" > "$(_shellb_bookmarks_calc_absfile "${1}")" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
 
   _shellb_print_nfo "bookmark set:"
   shellb_bookmark_get_long "${1}"
@@ -310,8 +336,8 @@ function shellb_bookmark_del() {
   _shellb_print_dbg "shellb_bookmark_del(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
-  [ -e "$(_shellb_bookmarks_calc_file "${1}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
-  rm "$(_shellb_bookmarks_calc_file "${1}")" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  [ -e "$(_shellb_bookmarks_calc_absfile "${1}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
+  rm "$(_shellb_bookmarks_calc_absfile "${1}")" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
 
@@ -340,7 +366,7 @@ function shellb_bookmark_goto() {
   [ -n "${1}" ] || _shellb_print_err "goto bookmark failed, no bookmark name given" || return 1
 
   # check if given bookmark exists
-  [ -e "$(_shellb_bookmarks_calc_file "${1}")" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
+  [ -e "$(_shellb_bookmarks_calc_absfile "${1}")" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
 
   # get bookmarked directory
   local TARGET
@@ -377,7 +403,7 @@ function shellb_bookmark_list_goto() {
   echo "$list"
 
   # if number is given by the user, it will be translated to 3rd column
-  target=$(_shellb_core_read_target "$list" "3")
+  target=$(_shellb_core_get_user_selection "$list" "3")
   shellb_bookmark_goto "${target}"
 }
 
@@ -429,41 +455,56 @@ function _shellb_bookmark_completions() {
 ###############################################
 # displays directory of notepad file for given or current directory
 # always succeeds (even if no notepad is created yet)
-function _shellb_notepad_calc_dir() {
-  _shellb_print_dbg "_shellb_notepad_calc_dir($*)"
-  _shellb_core_calc_dir "${_SHELLB_DB_NOTES}" "${1}"
+function _shellb_notepad_calc_absdir() {
+  _shellb_print_dbg "_shellb_notepad_calc_absdir($*)"
+  _shellb_core_calc_absdir "${_SHELLB_DB_NOTES}" "${1}"
 }
 
 # displays path to notepad file for given or current directory
 # always succeeds (even if no notepad is created yet)
-function shellb_notepad_calc_file() {
-  _shellb_print_dbg "shellb_notepad_calc_file($*)"
-  _shellb_core_calc_file "${_SHELLB_CFG_NOTE_FILE}" "${_SHELLB_DB_NOTES}" "${1}"
+function _shellb_notepad_calc_absfile() {
+  _shellb_print_dbg "_shellb_notepad_calc_absfile($*)"
+  _shellb_core_calc_absfile "${_SHELLB_CFG_NOTE_FILE}" "${_SHELLB_DB_NOTES}" "${1}"
+}
+
+# displays path to notepad file for given or current directory
+# always succeeds (even if no notepad is created yet)
+function _shellb_notepad_calc_domainfile() {
+  _shellb_print_dbg "_shellb_notepad_calc_domainfile($*)"
+  local notepad_absfile
+  notepad_absfile="$(_shellb_notepad_calc_absfile "${1}")"
+  echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domainfile "${notepad_absfile}" "${_SHELLB_DB_NOTES}")"
 }
 
 # displays path to notepad file for given or current directory
 # will fail if no notepad is created yet
-function shellb_notepad_get() {
-  _shellb_print_dbg "shellb_notepad_get()"
-  [ -e "$(shellb_notepad_calc_file "${1}")" ] || _shellb_print_err "notepad get failed, no \"${1:-.}\" notepad" || return 1
-  shellb_notepad_calc_file "${1}"
+function shellb_notepad_get_absfile() {
+  _shellb_print_dbg "shellb_notepad_get_absfile()"
+  local notepad_absfile
+  notepad_absfile="$(_shellb_notepad_calc_absfile "${1}")"
+  [ -e "${notepad_absfile}" ] || _shellb_print_err "notepad get failed, no \"${1:-.}\" notepad" || return 1
+  echo "${notepad_absfile}"
 }
 
 # opens a notepad for current directory in
 function shellb_notepad_edit() {
   _shellb_print_dbg "shellb_notepad_edit($*)"
-  mkdir -p "$(_shellb_notepad_calc_dir "${1}")" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
-  "${shellb_cfg_notepad_editor}" "$(shellb_notepad_calc_file "${1}")"
+  mkdir -p "$(_shellb_notepad_calc_absdir "${1}")" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
+  "${shellb_cfg_notepad_editor}" "$(_shellb_notepad_calc_absfile "${1}")"
 }
 
 function shellb_notepad_show() {
   _shellb_print_dbg "shellb_notepad_show($*)"
-  local notepad
-  notepad="$(realpath "${1:-.}")"
-  [ -e "$(shellb_notepad_calc_file "${notepad}")" ] || _shellb_print_err "notepad show failed, no \"${notepad}\" notepad" || return 1
-  [ -s "$(shellb_notepad_calc_file "${notepad}")" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
-  _shellb_print_nfo "\"${notepad}\" notepad:"
-  cat "$(shellb_notepad_calc_file "${notepad}")" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
+  local user_dir notepad_absfile notepad_domainfile
+
+  user_dir="${1:-.}"
+  notepad_absfile="$(_shellb_notepad_calc_absfile "${user_dir}")"
+  notepad_domainfile="$(_shellb_notepad_calc_domainfile "${user_dir}")"
+
+  [ -e "${notepad_absfile}" ] || _shellb_print_err "notepad show failed, no \"${notepad_domainfile}\" notepad / ${notepad_absfile}" || return 1
+  [ -s "${notepad_absfile}" ] || _shellb_print_wrn "notepad show: notepad \"${notepad_domainfile}\" is empty" || return 1
+  _shellb_print_nfo "\"${notepad_domainfile}\" notepad:"
+  cat "${notepad_absfile}" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
   echo ""
 }
 
@@ -487,8 +528,6 @@ function _shellb_notepad_list_row() {
 }
 
 function _shellb_notepad_list_print_menu() {
-  [ -n "${1}" ] || _shellb_print_err "notepads list_print_menu failed, search top not given" || return 1
-
   local NOTEPADS_SEEN i=1
   NOTEPADS_SEEN=0
   while read -r notepadfile
@@ -497,7 +536,7 @@ function _shellb_notepad_list_print_menu() {
     # display only the part of the path that is not the notepad directory
     printf "%3s) %s\n" "${i}" "${notepadfile}"
     i=$(($i+1))
-  done < <(_shellb_notepad_list_column "${1}") || return 1
+  done < <(_shellb_notepad_list_column "${1:-.}") || return 1
 
   # if no notepads seen, return error
   [ "${NOTEPADS_SEEN}" -eq 1 ] || return 1
@@ -505,14 +544,19 @@ function _shellb_notepad_list_print_menu() {
 
 function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
-  local NOTEPADS_LIST
-  NOTEPADS_LIST=$(_shellb_notepad_list_print_menu "${1:-.}") || _shellb_print_err "notepad list failed, no notepads under \"${1:-.}\"" || return 1
-  if [ "${1}" = "/" ]; then
+  local notepads_list user_dir notepad_absfile notepad_domainfile
+
+  user_dir="${1:-.}"
+  notepad_absfile="$(_shellb_notepad_calc_absfile "${user_dir}")"
+  notepad_domainfile="$(_shellb_notepad_calc_domainfile "${user_dir}")"
+
+  notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads under \"${notepad_domainfile}\"" || return 1
+  if [ "${user_dir}" = "/" ]; then
     _shellb_print_nfo "all notepads (under \"/\"):"
   else
-    _shellb_print_nfo "notepads under \"${1:-.}\":"
+    _shellb_print_nfo "notepads under \"${notepad_domainfile}\":"
   fi
-  echo "${NOTEPADS_LIST}"
+  echo "${notepads_list}"
 }
 
 # TODO add to shotrcuts/config
@@ -528,18 +572,27 @@ function shellb_notepad_list_edit() {
   echo "${NOTEPADS_LIST}"
 
   # if number is given by the user, it will be translated to 2nd column
-  target=$(_shellb_core_read_target "$NOTEPADS_LIST" "2")
+  target=$(_shellb_core_get_user_selection "$NOTEPADS_LIST" "2")
   shellb_notepad_edit "${1}${target%"${_SHELLB_CFG_NOTE_FILE}"}"
 }
 
 function shellb_notepad_del() {
   _shellb_print_dbg "shellb_notepad_del($*)"
-  rm "$(shellb_notepad_calc_file "${1:-.}")" || _shellb_print_err "notepad del failed, no \"${1:-.}\" notepad" || return 1
-  _shellb_print_nfo "$(shellb_notepad_calc_file "${1}") notepade deleted"
+
+  local notepad_absfile notepad_domainfile
+  notepad_absfile="$(_shellb_notepad_calc_absfile "${1:-.}")"
+  notepad_domainfile="$(_shellb_notepad_calc_domainfile "${1:-.}")"
+
+  [ -e "${notepad_absfile}" ] || _shellb_print_err "notepad del failed, no \"${notepad_domainfile}\" notepad" || return 1
+  _shellb_core_get_user_confirmation "delete \"${_SHELLB_CFG_PROTO}${notepad_domainfile}\" notepad?" || return 0
+  rm "${notepad_absfile}" || _shellb_print_err "notepad \"${notepad_domainfile}\" del failed, is it accessible?" || return 1
+  _shellb_print_nfo "\"${notepad_domainfile}\" notepade deleted"
 }
 
 function shellb_notepad_delall() {
   _shellb_print_dbg "shellb_notepad_delall($*)"
+  _shellb_core_get_user_confirmation "delete all notepads?" || return 0 && _shellb_print_nfo "deleting all notepads"
+
   rm "${_SHELLB_DB_NOTES:?}"/* -rf
   _shellb_print_nfo "all notepads deleted"
 }
@@ -626,7 +679,6 @@ eval "function ${shellb_func_notepad_list}()           { (shellb_notepad_list   
 eval "function ${shellb_func_notepad_del}()            { (shellb_notepad_del          \"\$@\";) }"
 eval "function ${shellb_func_notepad_delall}()         { (shellb_notepad_delall       \"\$@\";) }"
 # secondary/advanced notepad functions
-eval "function ${shellb_func_notepad_path}()           { (shellb_notepad_path         \"\$@\";) }"
 eval "function ${shellb_func_notepad_get}()            { (shellb_notepad_get          \"\$@\";) }"
 
 ###############################################
