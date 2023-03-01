@@ -97,7 +97,11 @@ function _shellb_print_nfo() {
 }
 
 function _shellb_print_wrn() {
-  printf "${_SHELLB_CFG_LOG_PREFIX}${_SHELLB_CFG_COLOR_WRN}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
+  printf "${_SHELLB_CFG_LOG_PREFIX}${_SHELLB_CFG_COLOR_WRN}%s${_SHELLB_COLOR_NONE}\n" "${1}"
+}
+
+function _shellb_print_wrn_fail() {
+  _shellb_print_wrn "${1}" >&2
   # for failures chaining
   return 1
 }
@@ -136,7 +140,7 @@ done < "${_SHELLB_RC}"
 [ -e "$(command -v sed)" ] || _shellb_print_err "sed not found. Please install sed"
 
 # provide default config it not present
-[ -e "${_SHELLB_RC}" ] || _shellb_print_wrn "creating default config: ${_SHELLB_RC}" \
+[ -e "${_SHELLB_RC}" ] || _shellb_print_wrn_fail "creating default config: ${_SHELLB_RC}" \
   || echo "${_SHELLB_CFG_RC_DEFAULT}" > "${_SHELLB_RC}"
 
 ###############################################
@@ -161,7 +165,7 @@ function _shellb_core_get_user_selection() {
 function _shellb_core_get_user_confirmation() {
   local question reply
   question="${1}"
-  _shellb_print_nfo "${question} [Y/n]"
+  _shellb_print_wrn "${question} [Y/n]"
   read reply || return 1
 
   case $reply in
@@ -232,7 +236,7 @@ function _shellb_core_find_with_suffix() {
   done < <(find "${domain_absdir}" ${find_options} -name "${target_glob}" 2>/dev/null || _shellb_print_err "_shellb_core_find_with_suffix, is ${domain_absdir} accessible?") || return 1
 
   # if no items seen, return error
-  [ "${items_seen}" -eq 0 ] || return 1
+  [ "${items_seen}" -eq 1 ] || return 1
   return 0
 }
 
@@ -280,8 +284,7 @@ function _shellb_bookmarks_column() {
 function _shellb_bookmarks_row() {
   # list bookmarks in a single line
   # we do it in subshell to avoid changing directory for whoever called us
-  (_shellb_core_find_as_row "${_SHELLB_DB_BOOKMARKS}" "${1:-*}" "/")
-  echo ""
+  (_shellb_core_find_as_row "${_SHELLB_DB_BOOKMARKS}" "${1:-*}" "/") && echo ""
 }
 
 function _shellb_bookmark_get() {
@@ -337,6 +340,7 @@ function shellb_bookmark_del() {
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
   [ -e "$(_shellb_bookmarks_calc_absfile "${1}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
+  _shellb_core_get_user_confirmation "delete \"${1}\" bookmark?" || return 0
   rm "$(_shellb_bookmarks_calc_absfile "${1}")" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
@@ -379,36 +383,55 @@ function shellb_bookmark_goto() {
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long(${1})"
 
-  local i=1
+  local notepads_seen=0 i=1
   # display long form of all bookmarks or only those starting with given string
   while read -r bookmark
   do
+    notepads_seen=1
     printf "%3s) " "${i}"
     shellb_bookmark_get_long "${bookmark}"
     i=$(($i+1))
   done < <(_shellb_bookmarks_column "${1}")
+
+  # if no notepads seen, return error
+  [ "${notepads_seen}" -eq 1 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
 }
 
 function shellb_bookmark_list_short() {
   _shellb_print_dbg "shellb_bookmark_list_short(${1})"
 
   # display short form of all bookmarks or only those starting with given string
-  _shellb_bookmarks_row "${1}"
+  _shellb_bookmarks_row "${1}" || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
 }
 
 # TODO add to shotrcuts/config
 function shellb_bookmark_list_goto() {
   local list target
-  list=$(shellb_bookmark_list_long "${1}") || return 1
+  list=$(shellb_bookmark_list_long "${1}")  || return 1
   echo "$list"
 
+  _shellb_print_nfo "select bookmark to goto:"
   # if number is given by the user, it will be translated to 3rd column
   target=$(_shellb_core_get_user_selection "$list" "3")
   shellb_bookmark_goto "${target}"
 }
 
+# TODO add to shotrcuts/config
+function shellb_bookmark_list_del() {
+  local list target
+  list=$(shellb_bookmark_list_long "${1}")  || return 1
+  echo "$list"
+
+  _shellb_print_nfo "select bookmark to delete:"
+  # if number is given by the user, it will be translated to 3rd column
+  target=$(_shellb_core_get_user_selection "$list" "3")
+  shellb_bookmark_del "${target}"
+}
+
 function shellb_bookmark_list_purge() {
   _shellb_print_dbg "shellb_bookmark_listpurge(${1})"
+
+  _shellb_core_get_user_confirmation "This will remove \"dead\" bookmarks. Proceed?" || return 0
 
   # display bookmark names and paths
   local PURGED=0
@@ -430,7 +453,7 @@ function shellb_bookmark_list_purge() {
     TARGET=""
   done < <(_shellb_bookmarks_column)
 
-  [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were alive)"
+  [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were \"alive\")"
 }
 
 ###############################################
@@ -467,13 +490,18 @@ function _shellb_notepad_calc_absfile() {
   _shellb_core_calc_absfile "${_SHELLB_CFG_NOTE_FILE}" "${_SHELLB_DB_NOTES}" "${1}"
 }
 
-# displays path to notepad file for given or current directory
-# always succeeds (even if no notepad is created yet)
 function _shellb_notepad_calc_domainfile() {
   _shellb_print_dbg "_shellb_notepad_calc_domainfile($*)"
   local notepad_absfile
   notepad_absfile="$(_shellb_notepad_calc_absfile "${1}")"
   echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domainfile "${notepad_absfile}" "${_SHELLB_DB_NOTES}")"
+}
+
+function _shellb_notepad_calc_domaindir() {
+  _shellb_print_dbg "_shellb_notepad_calc_domaindir($*)"
+  local notepad_absdir
+  notepad_absdir="$(_shellb_notepad_calc_absdir "${1}")"
+  echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domainfile "${notepad_absdir}" "${_SHELLB_DB_NOTES}")"
 }
 
 # displays path to notepad file for given or current directory
@@ -502,7 +530,7 @@ function shellb_notepad_show() {
   notepad_domainfile="$(_shellb_notepad_calc_domainfile "${user_dir}")"
 
   [ -e "${notepad_absfile}" ] || _shellb_print_err "notepad show failed, no \"${notepad_domainfile}\" notepad / ${notepad_absfile}" || return 1
-  [ -s "${notepad_absfile}" ] || _shellb_print_wrn "notepad show: notepad \"${notepad_domainfile}\" is empty" || return 1
+  [ -s "${notepad_absfile}" ] || _shellb_print_wrn_fail "notepad show: notepad \"${notepad_domainfile}\" is empty" || return 1
   _shellb_print_nfo "\"${notepad_domainfile}\" notepad:"
   cat "${notepad_absfile}" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
   echo ""
@@ -527,55 +555,6 @@ function _shellb_notepad_list_row() {
   _shellb_core_find_as_row "${_SHELLB_DB_NOTES}" "${_SHELLB_CFG_NOTE_FILE}" "${1}"  && echo ""
 }
 
-function _shellb_notepad_list_print_menu() {
-  local NOTEPADS_SEEN i=1
-  NOTEPADS_SEEN=0
-  while read -r notepadfile
-  do
-    NOTEPADS_SEEN=1
-    # display only the part of the path that is not the notepad directory
-    printf "%3s) %s\n" "${i}" "${notepadfile}"
-    i=$(($i+1))
-  done < <(_shellb_notepad_list_column "${1:-.}") || return 1
-
-  # if no notepads seen, return error
-  [ "${NOTEPADS_SEEN}" -eq 1 ] || return 1
-}
-
-function shellb_notepad_list() {
-  _shellb_print_dbg "shellb_notepad_list($*)"
-  local notepads_list user_dir notepad_absfile notepad_domainfile
-
-  user_dir="${1:-.}"
-  notepad_absfile="$(_shellb_notepad_calc_absfile "${user_dir}")"
-  notepad_domainfile="$(_shellb_notepad_calc_domainfile "${user_dir}")"
-
-  notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads under \"${notepad_domainfile}\"" || return 1
-  if [ "${user_dir}" = "/" ]; then
-    _shellb_print_nfo "all notepads (under \"/\"):"
-  else
-    _shellb_print_nfo "notepads under \"${notepad_domainfile}\":"
-  fi
-  echo "${notepads_list}"
-}
-
-# TODO add to shotrcuts/config
-function shellb_notepad_list_edit() {
-  _shellb_print_dbg "shellb_notepad_list($*)"
-  local NOTEPADS_LIST
-  NOTEPADS_LIST=$(_shellb_notepad_list_print_menu "${1:-.}") || _shellb_print_err "notepad list failed, no notepads under \"${1:-.}\"" || return 1
-  if [ "${1}" = "/" ]; then
-    _shellb_print_nfo "all notepads (under \"/\"):"
-  else
-    _shellb_print_nfo "notepads under \"${1:-.}\":"
-  fi
-  echo "${NOTEPADS_LIST}"
-
-  # if number is given by the user, it will be translated to 2nd column
-  target=$(_shellb_core_get_user_selection "$NOTEPADS_LIST" "2")
-  shellb_notepad_edit "${1}${target%"${_SHELLB_CFG_NOTE_FILE}"}"
-}
-
 function shellb_notepad_del() {
   _shellb_print_dbg "shellb_notepad_del($*)"
 
@@ -595,6 +574,85 @@ function shellb_notepad_delall() {
 
   rm "${_SHELLB_DB_NOTES:?}"/* -rf
   _shellb_print_nfo "all notepads deleted"
+}
+
+function _shellb_notepad_list_print_menu() {
+  local notepads_seen i=1
+  notepads_seen=0
+  while read -r notepadfile
+  do
+    notepads_seen=1
+    # display only the part of the path that is not the notepad directory
+    printf "%3s) %s\n" "${i}" "${notepadfile}"
+    i=$(($i+1))
+  done < <(_shellb_notepad_list_column "${1:-.}") || return 1
+
+  # if no notepads seen, return error
+  [ "${notepads_seen}" -eq 1 ] || return 1
+}
+
+function shellb_notepad_list() {
+  _shellb_print_dbg "shellb_notepad_list($*)"
+  local notepads_list user_dir notepad_domaindir
+
+  user_dir="${1:-.}"
+  notepad_domaindir="$(_shellb_notepad_calc_domaindir "${user_dir}")"
+
+  notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads under \"${notepad_domaindir}\"" || return 1
+  if [ "${user_dir}" = "/" ]; then
+    _shellb_print_nfo "all notepads (under \"/\"):"
+  else
+    _shellb_print_nfo "notepads under \"${notepad_domaindir}\":"
+  fi
+  echo "${notepads_list}"
+}
+
+# TODO add to shotrcuts/config
+function shellb_notepad_list_edit() {
+  _shellb_print_dbg "shellb_notepad_list_edit($*)"
+  local notepads_list target user_dir
+  user_dir="${1:-.}"
+
+  notepads_list=$(shellb_notepad_list "${user_dir}") || return 1
+  echo "${notepads_list}"
+  _shellb_print_nfo "select notepad to edit:"
+
+  # ask user to select a notepad, but omit the first line (header)
+  # from a list that will be parsed by _shellb_core_get_user_selection
+  target=$(_shellb_core_get_user_selection "$(echo "${notepads_list}" | tail -n +2)" "2")
+  shellb_notepad_edit "${user_dir}/$(dirname "${target}")"
+}
+
+# TODO add to shotrcuts/config
+function shellb_notepad_list_show() {
+  _shellb_print_dbg "shellb_notepad_list_show($*)"
+  local notepads_list target user_dir
+  user_dir="${1:-.}"
+
+  notepads_list=$(shellb_notepad_list "${user_dir}") || return 1
+  echo "${notepads_list}"
+  _shellb_print_nfo "select notepad to show:"
+
+  # ask user to select a notepad, but omit the first line (header)
+  # from a list that will be parsed by _shellb_core_get_user_selection
+  target=$(_shellb_core_get_user_selection "$(echo "${notepads_list}" | tail -n +2)" "2")
+  shellb_notepad_show "${user_dir}/$(dirname "${target}")"
+}
+
+# TODO add to shotrcuts/config
+function shellb_notepad_list_del() {
+  _shellb_print_dbg "shellb_notepad_list_del($*)"
+  local notepads_list target user_dir
+  user_dir="${1:-.}"
+
+  notepads_list=$(shellb_notepad_list "${user_dir}") || return 1
+  echo "${notepads_list}"
+  _shellb_print_nfo "select notepad to delete:"
+
+  # ask user to select a notepad, but omit the first line (header)
+  # from a list that will be parsed by _shellb_core_get_user_selection
+  target=$(_shellb_core_get_user_selection "$(echo "${notepads_list}" | tail -n +2)" "2")
+  shellb_notepad_del "${user_dir}/$(dirname "${target}")"
 }
 
 ###############################################
@@ -647,7 +705,7 @@ function _shellb_notepad_completions_all() {
 ###############################################
 # TODO implement
 function shellb_core_help() {
-  _shellb_print_wrn "not implemented yet"
+  _shellb_print_wrn_fail "not implemented yet"
 }
 
 ###############################################
