@@ -176,33 +176,93 @@ function _shellb_core_calc_file() {
   echo "$(_shellb_core_calc_dir "${2}" "${3:-.}")/${1}"
 }
 
+
+# ${1} - shellb domain directory
+# ${2} - files to look for
+# ${3} - printout suffix
+# ${4} - find options
+# ${5} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_find_with_suffix() {
+  local root_user root_shellb items_seen results_separator target_glob
+  root_shellb="${1}"
+  target_glob="${2}"
+  results_separator="${3}"
+  find_options="${4}"
+  root_user="${5}"
+
+  [ -n "${root_user}" ] || _shellb_print_err "_shellb_core_find_with_suffix, search top not given" || return 1
+
+  root_shellb=$(_shellb_core_calc_dir "${root_shellb}" "${root_user}")
+  # if directory does not exist, definitely no results are available -- bail out early
+  # to avoid errors from find not being able to start searching
+  [ -d "${root_shellb}" ] || return 1
+
+  items_seen=0
+  while read -r item
+  do
+    items_seen=1
+    # display only the part of the path that is below root_shellb directory
+    printf "%s%b" "$(realpath --relative-to "${root_shellb}" "${item}")" "${results_separator}"
+  done < <(find "${root_shellb}" ${find_options} -name "${target_glob}" 2>/dev/null || _shellb_print_err "_shellb_core_find_with_suffix, is ${root_shellb} accessible?") || return 1
+
+  # if no items seen, return error
+  [ "${items_seen}" -eq 0 ] || return 1
+  return 0
+}
+
+# ${1} - shellb domain directory
+# ${2} - files to look for
+# ${3} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_find_as_row() {
+  _shellb_core_find_with_suffix "${1}" "${2}"   " "   "-mindepth 1"   "${3}"
+}
+
+# ${1} - shellb domain directory
+# ${2} - files to look for
+# ${3} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_find_as_column() {
+  _shellb_core_find_with_suffix "${1}" "${2}"   "\n"   "-mindepth 1"   "${3}"
+}
+
+# ${1} - shellb domain directory
+# ${2} - files to look for
+# ${3} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_list_as_row() {
+  _shellb_core_find_with_suffix "${1}" "${2}"   " "   "-mindepth 1 -maxdepth 1"   "${3}"
+}
+
+# ${1} - shellb domain directory
+# ${2} - files to look for
+# ${3} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_list_as_column() {
+  _shellb_core_find_with_suffix "${1}" "${2}"   "\n"   "-mindepth 1 -maxdepth 1"   "${3}"
+}
+
 ###############################################
 # bookmark functions
 ###############################################
+function _shellb_bookmarks_calc_file() {
+  _shellb_core_calc_file "${1}" "${_SHELLB_DB_BOOKMARKS}" "/"
+}
+
 function _shellb_bookmarks_column() {
   # list bookmarks in a row (line by line)
   # we do it in subshell to avoid changing directory for whoever called us
-    ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
-      ls -1 "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks starting with \"${1}\" found" || return 1)
+  (_shellb_core_find_as_column "${_SHELLB_DB_BOOKMARKS}" "${1:-*}" "/")
 }
 
 function _shellb_bookmarks_row() {
   # list bookmarks in a single line
   # we do it in subshell to avoid changing directory for whoever called us
-  ( cd "${_SHELLB_DB_BOOKMARKS}" || _shellb_print_err "failed to fetch bookmarks row, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1; \
-    ls -x "${1}"* 2>/dev/null || _shellb_print_err "no bookmarks  starting with \"${1}\" found" || return 1 )
+  (_shellb_core_find_as_row "${_SHELLB_DB_BOOKMARKS}" "${1:-*}" "/")
+  echo ""
 }
 
 function _shellb_bookmark_get() {
   _shellb_print_dbg "_shellb_bookmark_get(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || return 1
-
-  if [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ]; then
-    cat "${_SHELLB_DB_BOOKMARKS}/${1}"
-  else
-    return 1
-  fi
+  cat "$(_shellb_bookmarks_calc_file "${1}")" 2> /dev/null
 }
 
 function _shellb_bookmark_print_long_alive() {
@@ -240,7 +300,7 @@ function shellb_bookmark_set() {
   [ -e "${TARGET}" ] || _shellb_print_err "set bookmark failed, invalid directory (${TARGET})" || return 1
 
   # build the bookmark file with the contents "$CD directory_path"
-  echo "$TARGET" > "${_SHELLB_DB_BOOKMARKS}/${1}" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
+  echo "$TARGET" > "$(_shellb_bookmarks_calc_file "${1}")" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
 
   _shellb_print_nfo "bookmark set:"
   shellb_bookmark_get_long "${1}"
@@ -250,8 +310,8 @@ function shellb_bookmark_del() {
   _shellb_print_dbg "shellb_bookmark_del(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
-  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
-  rm "${_SHELLB_DB_BOOKMARKS}/${1}" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  [ -e "$(_shellb_bookmarks_calc_file "${1}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
+  rm "$(_shellb_bookmarks_calc_file "${1}")" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
 
@@ -280,11 +340,11 @@ function shellb_bookmark_goto() {
   [ -n "${1}" ] || _shellb_print_err "goto bookmark failed, no bookmark name given" || return 1
 
   # check if given bookmark exists
-  [ -e "${_SHELLB_DB_BOOKMARKS}/${1}" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
+  [ -e "$(_shellb_bookmarks_calc_file "${1}")" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
 
   # get bookmarked directory
   local TARGET
-  TARGET=$(cat "${_SHELLB_DB_BOOKMARKS}/${1}" 2>/dev/null) || _shellb_print_err "goto bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  TARGET=$(_shellb_bookmark_get "${1}") || _shellb_print_err "goto bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
 
   # go to bookmarked directory
   cd "${TARGET}" || _shellb_print_err "goto bookmark failed, bookmark to dangling directory or no permissions to enter it" || return 1
