@@ -436,8 +436,8 @@ function _shellb_notepad_calc_dir() {
 
 # displays path to notepad file for given or current directory
 # always succeeds (even if no notepad is created yet)
-function shellb_notepad_path() {
-  _shellb_print_dbg "shellb_notepad_path($*)"
+function shellb_notepad_calc_file() {
+  _shellb_print_dbg "shellb_notepad_calc_file($*)"
   _shellb_core_calc_file "${_SHELLB_CFG_NOTE_FILE}" "${_SHELLB_DB_NOTES}" "${1}"
 }
 
@@ -445,25 +445,25 @@ function shellb_notepad_path() {
 # will fail if no notepad is created yet
 function shellb_notepad_get() {
   _shellb_print_dbg "shellb_notepad_get()"
-  [ -e "$(shellb_notepad_path "${1}")" ] || _shellb_print_err "notepad get failed, no \"${1:-.}\" notepad" || return 1
-  shellb_notepad_path "${1}"
+  [ -e "$(shellb_notepad_calc_file "${1}")" ] || _shellb_print_err "notepad get failed, no \"${1:-.}\" notepad" || return 1
+  shellb_notepad_calc_file "${1}"
 }
 
 # opens a notepad for current directory in
 function shellb_notepad_edit() {
   _shellb_print_dbg "shellb_notepad_edit($*)"
   mkdir -p "$(_shellb_notepad_calc_dir "${1}")" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
-  "${shellb_cfg_notepad_editor}" "$(shellb_notepad_path "${1}")"
+  "${shellb_cfg_notepad_editor}" "$(shellb_notepad_calc_file "${1}")"
 }
 
 function shellb_notepad_show() {
   _shellb_print_dbg "shellb_notepad_show($*)"
   local notepad
   notepad="$(realpath "${1:-.}")"
-  [ -e "$(shellb_notepad_path "${notepad}")" ] || _shellb_print_err "notepad show failed, no \"${notepad}\" notepad" || return 1
-  [ -s "$(shellb_notepad_path "${notepad}")" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
+  [ -e "$(shellb_notepad_calc_file "${notepad}")" ] || _shellb_print_err "notepad show failed, no \"${notepad}\" notepad" || return 1
+  [ -s "$(shellb_notepad_calc_file "${notepad}")" ] || _shellb_print_wrn "notepad show: notepad is empty" || return 1
   _shellb_print_nfo "\"${notepad}\" notepad:"
-  cat "$(shellb_notepad_path "${notepad}")" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
+  cat "$(shellb_notepad_calc_file "${notepad}")" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
   echo ""
 }
 
@@ -478,33 +478,12 @@ function shellb_notepad_show_recurse() {
   done
 }
 
-function _shellb_notepad_list_with_suffix() {
-  [ -n "${1}" ] || _shellb_print_err "notepads list_with_suffix, search top not given" || return 1
-
-  local notepads_top notepads_search
-  notepads_top="${1}"
-  notepads_search=$(_shellb_notepad_calc_dir "${notepads_top}")
-  [ -d "${notepads_search}" ] || return 1
-
-  local NOTEPADS_SEEN
-  NOTEPADS_SEEN=0
-  while read -r notepadfile
-  do
-    NOTEPADS_SEEN=1
-    # display only the part of the path that is not the notepad directory
-    printf "%s%b" "$(realpath --relative-to "${notepads_search}" "${notepadfile}")" "${2}"
-  done < <(find "${notepads_search}" -name "${_SHELLB_CFG_NOTE_FILE}" 2>/dev/null) || _shellb_print_err "notepad list column failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
-
-  # if no notepads seen, return error
-  [ "${NOTEPADS_SEEN}" -eq 1 ] || return 1
-}
-
 function _shellb_notepad_list_column() {
-  _shellb_notepad_list_with_suffix "${1}" "\n"
+  _shellb_core_find_as_column "${_SHELLB_DB_NOTES}" "${_SHELLB_CFG_NOTE_FILE}" "${1}"
 }
 
 function _shellb_notepad_list_row() {
-  _shellb_notepad_list_with_suffix "${1}" "  "  && echo ""
+  _shellb_core_find_as_row "${_SHELLB_DB_NOTES}" "${_SHELLB_CFG_NOTE_FILE}" "${1}"  && echo ""
 }
 
 function _shellb_notepad_list_print_menu() {
@@ -555,8 +534,8 @@ function shellb_notepad_list_edit() {
 
 function shellb_notepad_del() {
   _shellb_print_dbg "shellb_notepad_del($*)"
-  rm "$(shellb_notepad_path "${1:-.}")" || _shellb_print_err "notepad del failed, no \"${1:-.}\" notepad" || return 1
-  _shellb_print_nfo "$(shellb_notepad_path "${1}") notepade deleted"
+  rm "$(shellb_notepad_calc_file "${1:-.}")" || _shellb_print_err "notepad del failed, no \"${1:-.}\" notepad" || return 1
+  _shellb_print_nfo "$(shellb_notepad_calc_file "${1}") notepade deleted"
 }
 
 function shellb_notepad_delall() {
