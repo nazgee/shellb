@@ -49,6 +49,7 @@ _SHELLB_CFG_SYMBOL_CROSS=${_SHELLB_SYMBOL_CROSS}
 _SHELLB_CFG_LOG_PREFIX="shellb | "
 _SHELLB_CFG_PROTO="shellb://"
 _SHELLB_CFG_NOTE_FILE="note.md"
+_SHELLB_CFG_COMMAND_EXT="shellbcommand"
 
 _SHELLB_CFG_RC_DEFAULT=\
 '## notepad config
@@ -65,6 +66,8 @@ shellb_func_bookmark_del = r
 shellb_func_bookmark_get = d
 shellb_func_bookmark_goto = g
 shellb_func_bookmark_list = sl
+shellb_func_bookmark_list_goto = slg
+shellb_func_bookmark_list_del = sld
 shellb_func_bookmark_list_purge = slp
 # secondary/advanced bookmark functions
 shellb_func_bookmark_get_short = ds
@@ -75,12 +78,23 @@ shellb_func_notepad_edit = npe
 shellb_func_notepad_show = nps
 shellb_func_notepad_show_recurse = npsr
 shellb_func_notepad_list = npl
+shellb_func_notepad_list_edit = nple
+shellb_func_notepad_list_show = npls
+shellb_func_notepad_list_del = npld
 shellb_func_notepad_del  = npd
 shellb_func_notepad_delall  = npda
 # secondary/advanced notepad functions
 shellb_func_notepad_get  = npg
 
 ## primary/basic command functions
+shellb_func_command_save_previous = cns
+shellb_func_command_save_interactive = cnsi
+shellb_func_command_list = cnl
+shellb_func_command_list_exec = cnle
+shellb_func_command_list_del = cnld
+shellb_func_command_find = cnf
+shellb_func_command_find_exec = cnfe
+shellb_func_command_find_del = cnfd
 # secondary/advanced command functions
 '
 
@@ -146,7 +160,7 @@ done < "${_SHELLB_RC}"
 ###############################################
 # core functions
 ###############################################
-function _shellb_core_get_user_selection() {
+function _shellb_core_get_user_selection_column() {
   local list column target
   list="${1}"
   column="${2}"
@@ -158,6 +172,21 @@ function _shellb_core_get_user_selection() {
         ;;
       *)
         target=$(echo "${list}" | sed -n "${target}p" | awk "{print \$${column}}")
+        echo "${target}"
+  esac
+}
+
+function _shellb_core_get_user_selection_whole() {
+  local list column target
+  list="${1}"
+  read target || return 1
+
+  case $target in
+      ''|*[!0-9]*)
+        echo "${target}"
+        ;;
+      *)
+        target=$(echo "${list}" | sed -n "${target}p" | sed 's/[[:space:]]*[0-9]*)[[:space:]]//')
         echo "${target}"
   esac
 }
@@ -183,7 +212,7 @@ function _shellb_core_get_user_confirmation() {
 function _shellb_core_calc_absdir() {
   _shellb_print_dbg "_shellb_core_calc_absdir($*)"
   [ -n "${1}" ] || _shellb_print_err "domain dir can't be empty" || return 1
-  echo "${1}$(realpath "${2:-.}")"
+  echo "${1}$(realpath -m "${2:-.}")"
 }
 
 # ${1} - filename
@@ -199,10 +228,25 @@ function _shellb_core_calc_absfile() {
 # ${1} - filename
 # ${2} - shellb domain directory
 function _shellb_core_calc_domainfile() {
+  _shellb_print_dbg "_shellb_core_calc_domainfile($*)"
   local file domain
   file="${1}"
   domain="${2}"
-  realpath --relative-to "${domain}" "${file}"
+  realpath -m --relative-to "${domain}" "${file}"
+}
+
+# ${1} - shellb domain directory
+# ${2} - userspace directory (optional, if not provided, current directory is used)
+function _shellb_core_calc_domaindir() {
+  _shellb_print_dbg "_shellb_core_calc_domaindir($*)"
+  local dir domain
+  domain="${1}"
+  dir="${2}"
+  if [[ "$(realpath -m "${dir}")" = "$(realpath -m "${domain}")" ]]; then
+    echo ""
+  else
+    realpath -m --relative-to "${domain}" "${dir}"
+  fi
 }
 
 # ${1} - shellb domain directory
@@ -412,7 +456,7 @@ function shellb_bookmark_list_goto() {
 
   _shellb_print_nfo "select bookmark to goto:"
   # if number is given by the user, it will be translated to 3rd column
-  target=$(_shellb_core_get_user_selection "$list" "3")
+  target=$(_shellb_core_get_user_selection_column "$list" "3")
   shellb_bookmark_goto "${target}"
 }
 
@@ -424,7 +468,7 @@ function shellb_bookmark_list_del() {
 
   _shellb_print_nfo "select bookmark to delete:"
   # if number is given by the user, it will be translated to 3rd column
-  target=$(_shellb_core_get_user_selection "$list" "3")
+  target=$(_shellb_core_get_user_selection_column "$list" "3")
   shellb_bookmark_del "${target}"
 }
 
@@ -476,20 +520,19 @@ function _shellb_bookmark_completions() {
 ###############################################
 # notepad functions
 ###############################################
-# displays directory of notepad file for given or current directory
-# always succeeds (even if no notepad is created yet)
+# ${1} - optional directory to calculate abs dir for
 function _shellb_notepad_calc_absdir() {
   _shellb_print_dbg "_shellb_notepad_calc_absdir($*)"
   _shellb_core_calc_absdir "${_SHELLB_DB_NOTES}" "${1}"
 }
 
-# displays path to notepad file for given or current directory
-# always succeeds (even if no notepad is created yet)
+# ${1} - optional directory to calculate abs file for
 function _shellb_notepad_calc_absfile() {
   _shellb_print_dbg "_shellb_notepad_calc_absfile($*)"
   _shellb_core_calc_absfile "${_SHELLB_CFG_NOTE_FILE}" "${_SHELLB_DB_NOTES}" "${1}"
 }
 
+# ${1} - optional directory to calculate notepad domain file for
 function _shellb_notepad_calc_domainfile() {
   _shellb_print_dbg "_shellb_notepad_calc_domainfile($*)"
   local notepad_absfile
@@ -497,6 +540,7 @@ function _shellb_notepad_calc_domainfile() {
   echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domainfile "${notepad_absfile}" "${_SHELLB_DB_NOTES}")"
 }
 
+# ${1} - optional directory to calculate notepad domain dir for
 function _shellb_notepad_calc_domaindir() {
   _shellb_print_dbg "_shellb_notepad_calc_domaindir($*)"
   local notepad_absdir
@@ -598,11 +642,11 @@ function shellb_notepad_list() {
   user_dir="${1:-.}"
   notepad_domaindir="$(_shellb_notepad_calc_domaindir "${user_dir}")"
 
-  notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads under \"${notepad_domaindir}\"" || return 1
+  notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads below \"${notepad_domaindir}\"" || return 1
   if [ "${user_dir}" = "/" ]; then
-    _shellb_print_nfo "all notepads (under \"/\"):"
+    _shellb_print_nfo "all notepads (below \"/\"):"
   else
-    _shellb_print_nfo "notepads under \"${notepad_domaindir}\":"
+    _shellb_print_nfo "notepads below \"${notepad_domaindir}\":"
   fi
   echo "${notepads_list}"
 }
@@ -619,7 +663,7 @@ function shellb_notepad_list_edit() {
 
   # ask user to select a notepad, but omit the first line (header)
   # from a list that will be parsed by _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection "$(echo "${notepads_list}" | tail -n +2)" "2")
+  target=$(_shellb_core_get_user_selection_column "$(echo "${notepads_list}" | tail -n +2)" "2")
   shellb_notepad_edit "${user_dir}/$(dirname "${target}")"
 }
 
@@ -635,7 +679,7 @@ function shellb_notepad_list_show() {
 
   # ask user to select a notepad, but omit the first line (header)
   # from a list that will be parsed by _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection "$(echo "${notepads_list}" | tail -n +2)" "2")
+  target=$(_shellb_core_get_user_selection_column "$(echo "${notepads_list}" | tail -n +2)" "2")
   shellb_notepad_show "${user_dir}/$(dirname "${target}")"
 }
 
@@ -651,7 +695,7 @@ function shellb_notepad_list_del() {
 
   # ask user to select a notepad, but omit the first line (header)
   # from a list that will be parsed by _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection "$(echo "${notepads_list}" | tail -n +2)" "2")
+  target=$(_shellb_core_get_user_selection_column "$(echo "${notepads_list}" | tail -n +2)" "2")
   shellb_notepad_del "${user_dir}/$(dirname "${target}")"
 }
 
@@ -698,7 +742,264 @@ function _shellb_notepad_completions_all() {
 ###############################################
 # command functions
 ###############################################
-# TODO implement
+# ${1} - optional directory to calculate command dir for
+function _shellb_command_calc_absdir() {
+  _shellb_print_dbg "_shellb_command_calc_absdir($*)"
+  _shellb_core_calc_absdir "${_SHELLB_DB_COMMANDS}" "${1}"
+}
+
+# ${1} - command file name
+# ${2} - optional directory to calculate command file for
+function _shellb_command_calc_absfile() {
+  _shellb_print_dbg "_shellb_command_calc_absfile($*)"
+  _shellb_core_calc_absfile "${1}" "${_SHELLB_DB_COMMANDS}" "${2}"
+}
+
+# ${1} - command file name
+# ${2} - optional directory to calculate command file for
+function _shellb_command_calc_domainfile() {
+  _shellb_print_dbg "_shellb_command_calc_domainfile($*)"
+  local command_absfile
+  command_absfile="$(_shellb_command_calc_absfile "${1}" "${2}")"
+  echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domainfile "${command_absfile}" "${_SHELLB_DB_COMMANDS}")"
+}
+
+# ${1} - optional directory to calculate command dir for
+function _shellb_command_calc_domaindir() {
+  _shellb_print_dbg "_shellb_command_calc_domaindir($*)"
+  local command_absdir
+  command_absdir="$(_shellb_command_calc_absdir "${1}")"
+  echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domaindir "${_SHELLB_DB_COMMANDS}" "${command_absdir}")"
+}
+
+function _shellb_command_list_column() {
+  _shellb_core_list_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"
+}
+
+function _shellb_command_list_row() {
+  _shellb_core_list_as_row "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"  && echo ""
+}
+
+function _shellb_command_find_column() {
+  _shellb_core_find_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"
+}
+
+function _shellb_command_find_row() {
+  _shellb_core_find_as_row "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"  && echo ""
+}
+
+function _shellb_command_generate_filename() {
+  _shellb_print_dbg "_shellb_command_generate_filename()"
+  local cmd_file
+  cmd_file="$(uuidgen -t)"
+  echo "${cmd_file}.${_SHELLB_CFG_COMMAND_EXT}"
+}
+
+# ${1} - command string
+# ${2} - directory to save command for
+function _shellb_command_save() {
+  _shellb_print_dbg "shellb_command_save($*)"
+  local command_string user_dir cmd_file cmd_asbfile cmd_domainfile
+  command_string="${1}"
+  user_dir="${2}"
+  cmd_file="$(_shellb_command_generate_filename)"
+  cmd_absfile="$(_shellb_command_calc_absfile "${cmd_file}" "${user_dir}")"
+  cmd_domainfile="$(_shellb_command_calc_domainfile "${cmd_file}" "${user_dir}")"
+
+  _shellb_print_dbg "saving command: <${command_string}> to ${cmd_domainfile} / ${cmd_absfile}"
+  mkdir -p "$(dirname "${cmd_absfile}")" || _shellb_print_wrn_fail "failed to create directory \"${cmd_absfile}\" for <${command_string}> command" || return 1
+  echo "${command_string}" > "${cmd_absfile}" || _shellb_print_wrn_fail "failed to save command <${command_string}> to \"${cmd_absfile}\"" || return 1
+}
+
+# ${1} - directory to save command for. default is current dir
+function shellb_command_save_previous() {
+  local command_string user_dir
+  user_dir="${1:-.}"
+  command_string=$(history | tail -n 2 | head -n 1 | sed 's/[0-9 ]*//')
+  _shellb_print_nfo "saving previous command: (edit & confirm with ENTER or cancel with ctrl-c)"
+  read -e -p "$ " -i "${command_string}" command_string
+  _shellb_command_save "${command_string}" "${user_dir}"
+}
+
+# ${1} - directory to save command for. default is current dir
+function shellb_command_save_interactive() {
+  local command_string user_dir
+  user_dir="${1:-.}"
+  _shellb_print_nfo "saving previous command (edit & confirm with ENTER or cancel with ctrl-c):"
+  read -r -e -p "$ " command_string || return 1
+  _shellb_command_save "${command_string}" "${user_dir}"
+}
+
+function _shellb_command_list_print_menu() {
+  _shellb_print_dbg "_shellb_command_list_print_menu($*)"
+  local cmd_absdir user_dir seen i=1
+  seen=0
+  user_dir="${1:-.}"
+  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
+  while read -r commandfile
+  do
+    seen=1
+    # display only the part of the path that is not the commands directory
+    printf "%3s) %s\n" "${i}" "$(cat "${cmd_absdir}/${commandfile}")"
+    i=$(($i+1))
+  done < <(_shellb_command_list_column "${user_dir}") || return 1
+
+  # if no commands seen, return error
+  [ "${seen}" -eq 1 ] || return 1
+}
+
+# ${1} - md5sum of the command to find
+# ${2} - optional directory to search for command in
+function _shellb_command_list_get_by_md5sum() {
+  _shellb_print_dbg "_shellb_command_list_get_by_md5sum($*)"
+  local cmd_absdir user_dir target_md5 i=1
+  target_md5="${1}"
+  user_dir="${2:-.}"
+  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
+  while read -r commandfile
+  do
+    # display only the part of the path that is not the notepad directory
+    [ "${target_md5}" = "$(md5sum "${cmd_absdir}/${commandfile}" | sed 's/ .*//')" ] && echo "${cmd_absdir}/${commandfile}" && return 0
+    # _shellb_print_dbg "md5sum mismatch: ${target_md5} != $(md5sum "${cmd_absdir}/${commandfile}")"
+  done < <(_shellb_command_list_column "${user_dir}") || return 1
+
+  return 1
+}
+
+# ${1} - md5sum of the command to find
+# ${2} - optional directory to search for command in
+function _shellb_command_find_get_by_md5sum() {
+  _shellb_print_dbg "_shellb_command_find_get_by_md5sum($*)"
+  local cmd_absdir user_dir target_md5 i=1
+  target_md5="${1}"
+  user_dir="${2:-.}"
+  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
+  while read -r commandfile
+  do
+    # display only the part of the path that is not the notepad directory
+    [ "${target_md5}" = "$(md5sum "${cmd_absdir}/${commandfile}" | sed 's/ .*//')" ] && echo "${cmd_absdir}/${commandfile}" && return 0
+    _shellb_print_dbg "md5sum mismatch: ${target_md5} != $(md5sum "${cmd_absdir}/${commandfile}")"
+  done < <(_shellb_command_find_column "${user_dir}") || return 1
+
+  return 1
+}
+
+# TODO add to shotrcuts/config
+function shellb_command_list() {
+  _shellb_print_dbg "shellb_command_list($*)"
+  local commands_list user_dir command_domaindir
+
+  user_dir="${1:-.}"
+  command_domaindir="$(_shellb_command_calc_domaindir "${user_dir}")"
+
+  commands_list=$(_shellb_command_list_print_menu "${user_dir}") || _shellb_print_err "command list failed, no commands in \"${command_domaindir}\"" || return 1
+  _shellb_print_nfo "commands in \"${command_domaindir}\":"
+  echo "${commands_list}"
+}
+
+# TODO add to shotrcuts/config
+function shellb_command_list_exec() {
+  _shellb_print_dbg "shellb_command_list_exec($*)"
+  local commands_list target user_dir
+  user_dir="${1:-.}"
+
+  commands_list=$(shellb_command_list "${user_dir}") || return 1
+  echo "${commands_list}"
+  _shellb_print_nfo "select command to execute:"
+
+  # ask user to select a command, but omit the first line (header)
+  # from a list that is given to _shellb_core_get_user_selection
+  target=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
+  _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
+  read -r -e -p "$ " -i "${target}" target && eval "${target}"
+}
+
+# TODO add to shotrcuts/config
+function shellb_command_list_del() {
+  _shellb_print_dbg "shellb_command_list_del($*)"
+  local commands_list target_md5 user_dir target target_cmd
+  user_dir="${1:-.}"
+
+  commands_list=$(shellb_command_list "${user_dir}") || return 1
+  echo "${commands_list}"
+  _shellb_print_nfo "select command to delete:"
+
+  # ask user to select a command, but omit the first line (header)
+  # from a list that is given to _shellb_core_get_user_selection
+  target_md5=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)" | md5sum | sed 's/ .*//')
+  target=$(_shellb_command_list_get_by_md5sum "${target_md5}" "${user_dir}") || _shellb_print_err "command delete failed, file with md5 ${target_md5} not found" || return 1
+  target_cmd="$(cat "${target}")"
+  rm "${target}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
+  _shellb_print_nfo "command deleted: ${target_cmd}"
+}
+
+# TODO add to shotrcuts/config
+function _shellb_command_find_print_menu() {
+  _shellb_print_dbg "_shellb_command_find_print_menu($*)"
+  local cmd_absdir user_dir seen i=1
+  seen=0
+  user_dir="${1:-.}"
+  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
+  while read -r commandfile
+  do
+    seen=1
+    # display only the part of the path that is not the notepad directory
+    printf "%3s) %s\n" "${i}" "$(cat "${cmd_absdir}/${commandfile}")"
+    i=$(($i+1))
+  done < <(_shellb_command_find_column "${user_dir}") || return 1
+
+  # if no notepads seen, return error
+  [ "${seen}" -eq 1 ] || return 1
+}
+
+# TODO add to shotrcuts/config
+function shellb_command_find() {
+  _shellb_print_dbg "shellb_command_find($*)"
+  local commands_list user_dir command_domaindir
+
+  user_dir="${1:-.}"
+  command_domaindir="$(_shellb_command_calc_domaindir "${user_dir}")"
+
+  commands_list=$(_shellb_command_find_print_menu "${user_dir}") || _shellb_print_err "command find failed, no commands in \"${command_domaindir}\"" || return 1
+  _shellb_print_nfo "commands below \"${command_domaindir}\":"
+  echo "${commands_list}"
+}
+
+# TODO add to shotrcuts/config
+function shellb_command_find_exec() {
+  _shellb_print_dbg "shellb_command_find_exec($*)"
+  local commands_list target user_dir
+  user_dir="${1:-.}"
+
+  commands_list=$(shellb_command_find "${user_dir}") || return 1
+  echo "${commands_list}"
+  _shellb_print_nfo "select command to execute:"
+
+  # ask user to select a command, but omit the first line (header)
+  # from a list that is given to _shellb_core_get_user_selection
+  target=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
+  _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
+  read -r -e -p "$ " -i "${target}" target && eval "${target}"
+}
+
+# TODO add to shotrcuts/config
+function shellb_command_find_del() {
+  _shellb_print_dbg "shellb_command_find_del($*)"
+  local commands_list target_md5 user_dir target target_cmd
+  user_dir="${1:-.}"
+
+  commands_list=$(shellb_command_find "${user_dir}") || return 1
+  echo "${commands_list}"
+  _shellb_print_nfo "select command to delete:"
+
+  # ask user to select a command, but omit the first line (header)
+  # from a list that is given to _shellb_core_get_user_selection
+  target_md5=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)" | md5sum | sed 's/ .*//')
+  target=$(_shellb_command_find_get_by_md5sum "${target_md5}" "${user_dir}") || _shellb_print_err "command delete failed, file with md5 ${target_md5} not found" || return 1
+  target_cmd="$(cat "${target}")"
+  rm "${target}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
+  _shellb_print_nfo "command deleted: ${target_cmd}"
+}
 
 ###############################################
 # core functions
@@ -724,6 +1025,8 @@ eval "function ${shellb_func_bookmark_del}()        { (shellb_bookmark_del      
 eval "function ${shellb_func_bookmark_get}()        { (shellb_bookmark_get_long   \"\$@\";) }"
 eval "function ${shellb_func_bookmark_goto}()       {  shellb_bookmark_goto       \"\$@\";  }" # no subshell, we need goto side effects
 eval "function ${shellb_func_bookmark_list}()       { (shellb_bookmark_list_long  \"\$@\";) }"
+eval "function ${shellb_func_bookmark_list_goto}()  {  shellb_bookmark_list_goto  \"\$@\";  }" # no subshell, we need goto side effects
+eval "function ${shellb_func_bookmark_list_del}()   { (shellb_bookmark_list_del   \"\$@\";) }"
 eval "function ${shellb_func_bookmark_list_purge}() { (shellb_bookmark_list_purge \"\$@\";) }"
 # secondary/advanced bookmark functions
 eval "function ${shellb_func_bookmark_get_short}()  { (shellb_bookmark_get_short  \"\$@\";) }"
@@ -734,10 +1037,23 @@ eval "function ${shellb_func_notepad_edit}()           { (shellb_notepad_edit   
 eval "function ${shellb_func_notepad_show}()           { (shellb_notepad_show         \"\$@\";) }"
 eval "function ${shellb_func_notepad_show_recurse}  () { (shellb_notepad_show_recurse \"\$@\";) }"
 eval "function ${shellb_func_notepad_list}()           { (shellb_notepad_list         \"\$@\";) }"
+eval "function ${shellb_func_notepad_list_edit}()      { (shellb_notepad_list_edit    \"\$@\";) }"
+eval "function ${shellb_func_notepad_list_show}()      { (shellb_notepad_list_show    \"\$@\";) }"
+eval "function ${shellb_func_notepad_list_del}()       { (shellb_notepad_list_del     \"\$@\";) }"
 eval "function ${shellb_func_notepad_del}()            { (shellb_notepad_del          \"\$@\";) }"
 eval "function ${shellb_func_notepad_delall}()         { (shellb_notepad_delall       \"\$@\";) }"
 # secondary/advanced notepad functions
 eval "function ${shellb_func_notepad_get}()            { (shellb_notepad_get          \"\$@\";) }"
+
+# primary/basic command functions
+eval "function ${shellb_func_command_save_previous}()    { (shellb_command_save_previous     \"\$@\";) }"
+eval "function ${shellb_func_command_save_interactive}() { (shellb_command_save_interactive  \"\$@\";) }"
+eval "function ${shellb_func_command_list}()             { (shellb_command_list              \"\$@\";) }"
+eval "function ${shellb_func_command_list_exec}()        { (shellb_command_list_exec         \"\$@\";) }"
+eval "function ${shellb_func_command_list_del}()         { (shellb_command_list_del          \"\$@\";) }"
+eval "function ${shellb_func_command_find}()             { (shellb_command_find              \"\$@\";) }"
+eval "function ${shellb_func_command_find_exec}()        { (shellb_command_find_exec         \"\$@\";) }"
+eval "function ${shellb_func_command_find_del}()         { (shellb_command_find_del          \"\$@\";) }"
 
 ###############################################
 # completions for shortcuts
