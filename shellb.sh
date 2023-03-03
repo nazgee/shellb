@@ -134,6 +134,9 @@ function _shellb_print_err() {
 ###############################################
 # init
 ###############################################
+# save location of this script
+_SHELLB_SOURCE_LOCATION="${BASH_SOURCE[0]}"
+
 # prepare DB for bookmarks, notes, and commands
 [ ! -e "${_SHELLB_DB_BOOKMARKS}" ] && mkdir -p "${_SHELLB_DB_BOOKMARKS}"
 [ ! -e "${_SHELLB_DB_NOTES}" ] && mkdir -p "${_SHELLB_DB_NOTES}"
@@ -197,6 +200,7 @@ function _shellb_core_get_user_selection_whole() {
 }
 
 function _shellb_core_get_user_confirmation() {
+  _shellb_print_dbg "_shellb_core_get_user_confirmation($*)"
   local question reply
   question="${1}"
   _shellb_print_wrn "${question} [Y/n]"
@@ -321,14 +325,13 @@ function _shellb_core_list_as_column() {
 # ${1} - content to test
 # ${2} - file to test against
 function _shellb_core_is_same_as_file() {
+  _shellb_print_dbg "_shellb_core_is_same_as_file(${1})"
   local content file
   content="${1}"
   file="${2}"
   if (echo "${content}" | diff -q - "${file}" > /dev/null) ; then
-    _shellb_print_wrn_fail "OK! file \"${file}\" matches \"${content}\""
     return 0
   else
-    _shellb_print_wrn_fail "ERR file \"${file}\" does not match \"${content}\""
     return 1
   fi
 }
@@ -431,8 +434,14 @@ function shellb_bookmark_set() {
 
   # check if we already have a bookmark with this name
   bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}")"
-  [ -e "${bookmark_file}" ] && _shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}" \
-      || _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name})")\" exists, overwrite?" || return 0
+  if [ -e "${bookmark_file}" ]; then
+    # check if the bookmark is the same as the one we want to set
+    if (_shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}"); then
+      :
+    else
+      _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name})")\" exists, overwrite?" || return 0
+    fi
+  fi
 
   # build the bookmark file with the contents "$CD directory_path"
   echo "${bookmark_target}" > "${bookmark_file}" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
@@ -537,7 +546,7 @@ function shellb_bookmark_list_del() {
 function shellb_bookmark_list_purge() {
   _shellb_print_dbg "shellb_bookmark_listpurge(${1})"
 
-  _shellb_core_get_user_confirmation "This will remove \"dead\" bookmarks. Proceed?" || return 0
+  _shellb_core_get_user_confirmation "This will remove \"dead\" bookmarks. Bookmarks to accessible directories will be kept unchanged. Proceed?" || return 0
 
   # display bookmark names and paths
   local PURGED=0
@@ -865,7 +874,11 @@ function _shellb_command_calc_domaindir() {
 }
 
 function _shellb_command_list_column() {
-  _shellb_core_list_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"
+  _shellb_core_list_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}" | sort
+}
+
+function _shellb_command_list_column_unique() {
+  _shellb_command_list_column "${1}" | uniq
 }
 
 function _shellb_command_list_row() {
@@ -873,7 +886,11 @@ function _shellb_command_list_row() {
 }
 
 function _shellb_command_find_column() {
-  _shellb_core_find_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"
+  _shellb_core_find_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}" | sort
+}
+
+function _shellb_command_find_column_unique() {
+  _shellb_command_find_column "${1}" | uniq
 }
 
 function _shellb_command_find_row() {
@@ -934,7 +951,7 @@ function _shellb_command_list_print_menu() {
     # display only the part of the path that is not the commands directory
     printf "%3s) %s\n" "${i}" "$(cat "${cmd_absdir}/${commandfile}")"
     i=$(($i+1))
-  done < <(_shellb_command_list_column "${user_dir}") || return 1
+  done < <(_shellb_command_list_column_unique "${user_dir}") || return 1
 
   # if no commands seen, return error
   [ "${seen}" -eq 1 ] || return 1
@@ -953,6 +970,13 @@ function shellb_command_list() {
   echo "${commands_list}"
 }
 
+# ${1} command to execute
+function _shellb_command_exec() {
+  _shellb_print_dbg "_shellb_command_exec($*)"
+  local target="${1}"
+  eval "${target}"
+}
+
 # TODO add to shotrcuts/config
 function shellb_command_list_exec() {
   _shellb_print_dbg "shellb_command_list_exec($*)"
@@ -967,13 +991,13 @@ function shellb_command_list_exec() {
   # from a list that is given to _shellb_core_get_user_selection
   target=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
   _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
-  read -r -e -p "$ " -i "${target}" target && history -s "${target}" && eval "${target}"
+  read -r -e -p "$ " -i "${target}" target && history -s "${target}" && _shellb_command_exec "${target}"
 }
 
 # TODO add to shotrcuts/config
 function shellb_command_list_del() {
   _shellb_print_dbg "shellb_command_list_del($*)"
-  local commands_list user_dir target target_cmd cmd_absdir
+  local commands_list user_dir targets target_cmd cmd_absdir
   user_dir="${1:-.}"
 
   commands_list=$(shellb_command_list "${user_dir}") || return 1
@@ -984,11 +1008,11 @@ function shellb_command_list_del() {
   # from a list that is given to _shellb_core_get_user_selection
   cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
   target_command=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
-  target=$(_shellb_core_list_files_matching_content_as_column "${target_command}" "${cmd_absdir}" "*.${_SHELLB_CFG_COMMAND_EXT}") \
+  targets=$(_shellb_core_list_files_matching_content_as_column "${target_command}" "${cmd_absdir}" "*.${_SHELLB_CFG_COMMAND_EXT}") \
       || _shellb_print_err "command delete failed, file with \"${target_command}\" not found in \"${cmd_absdir}\"" || return 1
 
-  target_cmd="$(cat "${target}")"
-  rm "${target}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
+  target_cmd="$(cat "${targets}")"
+  rm "${targets}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
   _shellb_print_nfo "command deleted: ${target_cmd}"
 }
 
@@ -1005,7 +1029,7 @@ function _shellb_command_find_print_menu() {
     # display only the part of the path that is not the notepad directory
     printf "%3s) %s\n" "${i}" "$(cat "${cmd_absdir}/${commandfile}")"
     i=$(($i+1))
-  done < <(_shellb_command_find_column "${user_dir}") || return 1
+  done < <(_shellb_command_find_column_unique "${user_dir}") || return 1
 
   # if no notepads seen, return error
   [ "${seen}" -eq 1 ] || return 1
@@ -1038,7 +1062,7 @@ function shellb_command_find_exec() {
   # from a list that is given to _shellb_core_get_user_selection
   target=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
   _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
-  read -r -e -p "$ " -i "${target}" target && history -s "${target}" && eval "${target}"
+  read -r -e -p "$ " -i "${target}" target && history -s "${target}" && _shellb_command_exec "${target}"
 }
 
 # TODO add to shotrcuts/config
@@ -1157,7 +1181,7 @@ function shellb() {
       ;;
     "notepad")
       shift
-      shellb_notepad "$@"
+      (shellb_notepad "$@")
       ;;
     "help")
       shift
@@ -1165,8 +1189,8 @@ function shellb() {
       ;;
     "reload-config")
       shift
-      source "${BASH_SOURCE[0]}"
-      _shellb_print_nfo "config reloaded"
+      source "${_SHELLB_SOURCE_LOCATION}"
+      _shellb_print_nfo "config reloaded (${_SHELLB_SOURCE_LOCATION} + ${_SHELLB_RC})"
       ;;
     *)
       _shellb_print_err "unknown command: ${1}"
@@ -1182,7 +1206,7 @@ function shellb_bookmark() {
   case ${1} in
     "set")
       shift
-      shellb_bookmark_set "$@"
+      (shellb_bookmark_set "$@")
       ;;
     "go")
       shift
@@ -1190,15 +1214,15 @@ function shellb_bookmark() {
       ;;
     "get")
       shift
-      shellb_bookmark_get "$@"
+      (shellb_bookmark_get_long "$@")
       ;;
     "del")
       shift
-      shellb_bookmark_del "$@"
+      (shellb_bookmark_del "$@")
       ;;
     "list")
       shift
-      shellb_bookmark_list "$@"
+      (shellb_bookmark_list_long "$@")
       ;;
     *)
       _shellb_print_err "unknown command: ${1}"
@@ -1212,19 +1236,19 @@ function shellb_notepad() {
       shift
       shellb_notepad_edit "$@"
       ;;
-    "edit-local")
+    "editlocal")
       shift
       shellb_notepad_edit "."
       ;;
     "show")
       shift
-      shellb_notepad_show "$@"
+      shellb_notepad_list_show "/"
       ;;
-    "show-local")
+    "showlocal")
       shift
       shellb_notepad_show "."
       ;;
-    "show-all")
+    "showall")
       shift
       shellb_notepad_show_recurse "/"
       ;;
@@ -1232,11 +1256,11 @@ function shellb_notepad() {
       shift
       shellb_notepad_del "$@"
       ;;
-    "del-local")
+    "dellocal")
       shift
       shellb_notepad_del "."
       ;;
-    "del-all")
+    "delall")
       shift
       shellb_notepad_delall "$@"
       ;;
@@ -1244,13 +1268,13 @@ function shellb_notepad() {
       shift
       shellb_notepad_list "$@"
       ;;
-    "list-local")
+    "listlocal")
       shift
       shellb_notepad_list "."
       ;;
-    "list-all")
+    "listall")
       shift
-      shellb_notepad_show_recurse "/"
+      shellb_notepad_list "/"
       ;;
     *)
       _shellb_print_err "unknown command: ${1}"
@@ -1262,35 +1286,35 @@ function shellb_notepad() {
 
 function shellb_command() {
   case ${1} in
-    "save-interactive")
+    "saveinteractive")
       shift
       shellb_command_save_interactive "$@"
       ;;
-    "save-previous")
+    "saveprevious")
       shift
       shellb_command_save_previous "$@"
       ;;
-    "exec-local")
+    "execlocal")
       shift
       shellb_command_list_exec "."
       ;;
-    "exec-global")
+    "execglobal")
       shift
       shellb_command_find_exec "/"
       ;;
-    "del-local")
+    "dellocal")
       shift
       shellb_command_list_del "."
       ;;
-    "del-global")
+    "delglobal")
       shift
       shellb_command_find_del "/"
       ;;
-    "list-global")
+    "listglobal")
       shift
       shellb_command_find "/"
       ;;
-    "list-local")
+    "listlocal")
       shift
       shellb_command_list "."
       ;;
@@ -1345,7 +1369,7 @@ function _shellb_bookmark_opts() {
 function _shellb_notepad_opts() {
   #_shellb_print_dbg "_shellb_notepad_opts($*)"
   local opts comp_words comp_word comp_cur comp_prev
-  local modifier_notepads="edit-local edit show-local show-all show del-local del-local del-all del list list-local list-all"
+  local modifier_notepads="editlocal edit showlocal showall show dellocal dellocal delall del list listlocal listall"
   comp_word="${1}"
   shift
   comp_cur="${1}"
@@ -1388,7 +1412,7 @@ function _shellb_notepad_opts() {
 function _shellb_command_opts() {
   #_shellb_print_dbg "_shellb_command_opts($*)"
   local opts comp_words comp_word comp_cur comp_prev
-  local modifier_commands="save-previous save-interactive exec-local exec-global del-local del-global list-local list-global list"
+  local modifier_commands="saveprevious saveinteractive execlocal execglobal dellocal delglobal listlocal listglobal list"
   comp_word="${1}"
   shift
   comp_cur="${1}"
@@ -1500,7 +1524,7 @@ eval "function ${shellb_func_command_find}()             { (shellb_command_find 
 eval "function ${shellb_func_command_find_exec}()        { (shellb_command_find_exec         \"\$@\";) }"
 eval "function ${shellb_func_command_find_del}()         { (shellb_command_find_del          \"\$@\";) }"
 
-eval "function ${shellb_func}()                          { shellb                           \"\$@\"; }"
+eval "function ${shellb_func}()                          { shellb                           \"\$@\"; }" # no subshell, we MAY need side effects
 
 ###############################################
 # completions for shortcuts
