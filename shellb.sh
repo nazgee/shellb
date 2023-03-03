@@ -47,9 +47,13 @@ _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
 _SHELLB_CFG_SYMBOL_CHECK=${_SHELLB_SYMBOL_CHECK}
 _SHELLB_CFG_SYMBOL_CROSS=${_SHELLB_SYMBOL_CROSS}
 _SHELLB_CFG_LOG_PREFIX="shellb | "
+_SHELLB_CFG_SEPARATOR="------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
+_SHELLB_CFG_NOTEPAD_TITLE_W=160
 _SHELLB_CFG_PROTO="shellb://"
 _SHELLB_CFG_NOTE_FILE="note.md"
 _SHELLB_CFG_COMMAND_EXT="shellbcommand"
+
+_SHELLB_CFG_HELP_RELOAD="invoke \"shellb reload-config\" to reload config from \"${_SHELLB_RC}\""
 
 _SHELLB_CFG_RC_DEFAULT=\
 '## notepad config
@@ -58,7 +62,7 @@ _SHELLB_CFG_RC_DEFAULT=\
 shellb_cfg_notepad_editor = editor
 
 ## core functions
-shellb_func = shl
+shellb_func = shh
 shellb_func_help = h
 
 ## primary/basic bookmark functions
@@ -148,11 +152,11 @@ do
 done < "${_SHELLB_RC}"
 
 # check if required tools are available
-[ -e "$(command -v realpath)" ] || _shellb_print_err "realpath not found. Please install coreutils."
-[ -e "$(command -v head)" ] || _shellb_print_err "head not found. Please install coreutils."
-[ -e "$(command -v xargs)" ] || _shellb_print_err "xargs not found. Please install findutils."
-[ -e "$(command -v find)" ] || _shellb_print_err "find not found. Please install findutils."
-[ -e "$(command -v sed)" ] || _shellb_print_err "sed not found. Please install sed"
+
+[ -e "$(command -v uuidgen)" ] || _shellb_print_err "find not found. Please install uuid-runtime and ${_SHELLB_CFG_HELP_RELOAD}"
+[ -e "$(command -v sed)" ] || _shellb_print_err "sed not found. Please install sed and ${_SHELLB_CFG_HELP_RELOAD}"
+[ -e "$(command -v awk)" ] || _shellb_print_err "awk not found. Please install awk and ${_SHELLB_CFG_HELP_RELOAD}"
+[ -e "$(command -v diff)" ] || _shellb_print_err "diff not found. Please install diffutils and ${_SHELLB_CFG_HELP_RELOAD}"
 
 # provide default config it not present
 [ -e "${_SHELLB_RC}" ] || _shellb_print_wrn_fail "creating default config: ${_SHELLB_RC}" \
@@ -313,6 +317,58 @@ function _shellb_core_list_as_column() {
   _shellb_core_find_with_suffix "${1}" "${2}"   "\n"   "-mindepth 1 -maxdepth 1"   "${3}"
 }
 
+# return 0 if content is same as file
+# ${1} - content to test
+# ${2} - file to test against
+function _shellb_core_is_same_as_file() {
+  local content file
+  content="${1}"
+  file="${2}"
+  if (echo "${content}" | diff -q - "${file}" > /dev/null) ; then
+    _shellb_print_wrn_fail "OK! file \"${file}\" matches \"${content}\""
+    return 0
+  else
+    _shellb_print_wrn_fail "ERR file \"${file}\" does not match \"${content}\""
+    return 1
+  fi
+}
+
+# Return column of files below directory matching content
+# ${1} - content to test
+# ${2} - directory to start searching from
+# ${3} - files glob, optional (by default test each file_
+function _shellb_core_find_files_matching_content_as_column() {
+  local content search_top search_glob seen
+  content="${1}"
+  search_top="${2}"
+  search_glob="${3}"
+  seen=0
+
+  while read -r file_to_test
+  do
+    _shellb_core_is_same_as_file "${content}" "${search_top}/${file_to_test}" && realpath -q "${search_top}/${file_to_test}" && seen=1
+  done < <(_shellb_core_find_as_column "${search_top}" "${search_glob:-*}" "/")
+
+  [ "${seen}" -eq 1 ] || return 1
+  return 0
+}
+
+# Return column of files in given directory matching content
+# ${1} - content to test
+# ${2} - directory to start searching from
+# ${3} - files glob, optional (by default test each file_
+function _shellb_core_list_files_matching_content_as_column() {
+  local content search_top search_glob
+  content="${1}"
+  search_top="${2}"
+  search_glob="${3}"
+
+  while read -r file_to_test
+  do
+    _shellb_core_is_same_as_file "${content}" "${search_top}/${file_to_test}" && realpath -q "${search_top}/${file_to_test}"
+  done < <(_shellb_core_list_as_column "${search_top}" "${search_glob:-*}" "/")
+}
+
 ###############################################
 # bookmark functions
 ###############################################
@@ -358,23 +414,28 @@ function _shellb_bookmark_print_long() {
 
 function shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
+  local bookmark_target bookmark_name bookmark_file
+  bookmark_name="${1}"
 
   # check if bookmark name is given
-  [ -n "${1}" ] || _shellb_print_err "set bookmark failed, no bookmark name given" || return 1
+  [ -n "${bookmark_name}" ] || _shellb_print_err "set bookmark failed, no bookmark name given" || return 1
 
   # if second arg is not given, bookmark current directory
-  local TARGET
-  TARGET="${2}"
-  [ -z "${TARGET}" ] && TARGET="$(pwd)"
+  bookmark_target="${2:-$(pwd)}"
 
   # translate relative paths to absolute paths
-  TARGET=$(realpath "${TARGET}")
+  bookmark_target=$(realpath "${bookmark_target}")
 
-  # check if bookmark directory exists
-  [ -e "${TARGET}" ] || _shellb_print_err "set bookmark failed, invalid directory (${TARGET})" || return 1
+  # sanity check if bookmark directory exists
+  [ -e "${bookmark_target}" ] || _shellb_print_err "set bookmark failed, invalid directory (${bookmark_target})" || return 1
+
+  # check if we already have a bookmark with this name
+  bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}")"
+  [ -e "${bookmark_file}" ] && _shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}" \
+      || _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name})")\" exists, overwrite?" || return 0
 
   # build the bookmark file with the contents "$CD directory_path"
-  echo "$TARGET" > "$(_shellb_bookmarks_calc_absfile "${1}")" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
+  echo "${bookmark_target}" > "${bookmark_file}" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
 
   _shellb_print_nfo "bookmark set:"
   shellb_bookmark_get_long "${1}"
@@ -576,9 +637,8 @@ function shellb_notepad_show() {
 
   [ -e "${notepad_absfile}" ] || _shellb_print_err "notepad show failed, no \"${notepad_domainfile}\" notepad / ${notepad_absfile}" || return 1
   [ -s "${notepad_absfile}" ] || _shellb_print_wrn_fail "notepad show: notepad \"${notepad_domainfile}\" is empty" || return 1
-  _shellb_print_nfo "\"${notepad_domainfile}\" notepad:"
+  _shellb_print_wrn "$(printf '%s' "---- ${notepad_domainfile}") $(printf '%*.*s' 0 $((_SHELLB_CFG_NOTEPAD_TITLE_W - ${#notepad_domainfile} - 5)) "${_SHELLB_CFG_SEPARATOR}")"
   cat "${notepad_absfile}" || _shellb_print_err "notepad show failed, is ${_SHELLB_DB_NOTES }accessible?" || return 1
-  echo ""
 }
 
 function shellb_notepad_show_recurse() {
@@ -880,42 +940,6 @@ function _shellb_command_list_print_menu() {
   [ "${seen}" -eq 1 ] || return 1
 }
 
-# ${1} - md5sum of the command to find
-# ${2} - optional directory to search for command in
-function _shellb_command_list_get_by_md5sum() {
-  _shellb_print_dbg "_shellb_command_list_get_by_md5sum($*)"
-  local cmd_absdir user_dir target_md5 i=1
-  target_md5="${1}"
-  user_dir="${2:-.}"
-  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
-  while read -r commandfile
-  do
-    # display only the part of the path that is not the notepad directory
-    [ "${target_md5}" = "$(md5sum "${cmd_absdir}/${commandfile}" | sed 's/ .*//')" ] && echo "${cmd_absdir}/${commandfile}" && return 0
-    # _shellb_print_dbg "md5sum mismatch: ${target_md5} != $(md5sum "${cmd_absdir}/${commandfile}")"
-  done < <(_shellb_command_list_column "${user_dir}") || return 1
-
-  return 1
-}
-
-# ${1} - md5sum of the command to find
-# ${2} - optional directory to search for command in
-function _shellb_command_find_get_by_md5sum() {
-  _shellb_print_dbg "_shellb_command_find_get_by_md5sum($*)"
-  local cmd_absdir user_dir target_md5 i=1
-  target_md5="${1}"
-  user_dir="${2:-.}"
-  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
-  while read -r commandfile
-  do
-    # display only the part of the path that is not the notepad directory
-    [ "${target_md5}" = "$(md5sum "${cmd_absdir}/${commandfile}" | sed 's/ .*//')" ] && echo "${cmd_absdir}/${commandfile}" && return 0
-    _shellb_print_dbg "md5sum mismatch: ${target_md5} != $(md5sum "${cmd_absdir}/${commandfile}")"
-  done < <(_shellb_command_find_column "${user_dir}") || return 1
-
-  return 1
-}
-
 # TODO add to shotrcuts/config
 function shellb_command_list() {
   _shellb_print_dbg "shellb_command_list($*)"
@@ -949,7 +973,7 @@ function shellb_command_list_exec() {
 # TODO add to shotrcuts/config
 function shellb_command_list_del() {
   _shellb_print_dbg "shellb_command_list_del($*)"
-  local commands_list target_md5 user_dir target target_cmd
+  local commands_list user_dir target target_cmd cmd_absdir
   user_dir="${1:-.}"
 
   commands_list=$(shellb_command_list "${user_dir}") || return 1
@@ -958,8 +982,11 @@ function shellb_command_list_del() {
 
   # ask user to select a command, but omit the first line (header)
   # from a list that is given to _shellb_core_get_user_selection
-  target_md5=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)" | md5sum | sed 's/ .*//')
-  target=$(_shellb_command_list_get_by_md5sum "${target_md5}" "${user_dir}") || _shellb_print_err "command delete failed, file with md5 ${target_md5} not found" || return 1
+  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
+  target_command=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
+  target=$(_shellb_core_list_files_matching_content_as_column "${target_command}" "${cmd_absdir}" "*.${_SHELLB_CFG_COMMAND_EXT}") \
+      || _shellb_print_err "command delete failed, file with \"${target_command}\" not found in \"${cmd_absdir}\"" || return 1
+
   target_cmd="$(cat "${target}")"
   rm "${target}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
   _shellb_print_nfo "command deleted: ${target_cmd}"
@@ -1017,7 +1044,7 @@ function shellb_command_find_exec() {
 # TODO add to shotrcuts/config
 function shellb_command_find_del() {
   _shellb_print_dbg "shellb_command_find_del($*)"
-  local commands_list target_md5 user_dir target target_cmd
+  local commands_list user_dir target target_cmd
   user_dir="${1:-.}"
 
   commands_list=$(shellb_command_find "${user_dir}") || return 1
@@ -1026,8 +1053,11 @@ function shellb_command_find_del() {
 
   # ask user to select a command, but omit the first line (header)
   # from a list that is given to _shellb_core_get_user_selection
-  target_md5=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)" | md5sum | sed 's/ .*//')
-  target=$(_shellb_command_find_get_by_md5sum "${target_md5}" "${user_dir}") || _shellb_print_err "command delete failed, file with md5 ${target_md5} not found" || return 1
+  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
+  target_command=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
+  target=$(_shellb_core_find_files_matching_content_as_column "${target_command}" "${cmd_absdir}" "*.${_SHELLB_CFG_COMMAND_EXT}") \
+      || _shellb_print_err "command delete failed, file with \"${target_command}\" not found below \"${cmd_absdir}\"" || return 1
+
   target_cmd="$(cat "${target}")"
   rm "${target}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
   _shellb_print_nfo "command deleted: ${target_cmd}"
@@ -1131,7 +1161,12 @@ function shellb() {
       ;;
     "help")
       shift
-      shellb_core_help "$@"
+      shellb_help "$@"
+      ;;
+    "reload-config")
+      shift
+      source "${BASH_SOURCE[0]}"
+      _shellb_print_nfo "config reloaded"
       ;;
     *)
       _shellb_print_err "unknown command: ${1}"
@@ -1388,7 +1423,7 @@ function _shellb_command_opts() {
 
 function _shellb_completions() {
   local cur prev opts notepads_column
-  local modifiers="bookmark command notepad"
+  local modifiers="bookmark command notepad help reload-config"
 
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
