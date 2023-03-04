@@ -208,7 +208,7 @@ function shellb_notepad_list_del() {
 
 
 
-
+_SHELLB_NOTE_ACTIONS="edit editlocal del dellocal cat catlocal list listlocal purge"
 
 function _shellb_note_action() {
   _shellb_print_dbg "_shellb_note_action($*)"
@@ -217,6 +217,9 @@ function _shellb_note_action() {
   [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
 
   case ${action} in
+    help)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
     edit)
       _shellb_print_err "unimplemented \"note $action\""
       ;;
@@ -262,10 +265,13 @@ function _shellb_note_completion_opts() {
 
   case ${comp_cword} in
     1)
-      opts="edit editlocal del dellocal cat catlocal list listlocal purge"
+      opts="${_SHELLB_NOTE_ACTIONS} help"
       ;;
     2)
       case "${comp_prev}" in
+        help)
+          opts=${_SHELLB_NOTE_ACTIONS}
+          ;;
         edit|editlocal|del|dellocal|cat|catlocal|list|listlocal|purge)
           opts="SOME_OPTS"
           ;;

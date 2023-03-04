@@ -270,7 +270,7 @@ function shellb_command_find_del() {
 
 
 
-
+_SHELLB_COMMAND_ACTIONS="new save del dellocal run runlocal edit editlocal list listlocal purge"
 
 function _shellb_command_action() {
   _shellb_print_dbg "_shellb_command_action($*)"
@@ -279,6 +279,9 @@ function _shellb_command_action() {
   [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
 
   case ${action} in
+    help)
+    _shellb_print_err "unimplemented \"command $action\""
+      ;;
     new)
       _shellb_print_err "unimplemented \"command $action\""
       ;;
@@ -330,10 +333,13 @@ function _shellb_command_completion_opts() {
 
   case ${comp_cword} in
     1)
-      opts="new save del dellocal run runlocal edit editlocal list listlocal purge"
+      opts="${_SHELLB_COMMAND_ACTIONS} help"
       ;;
     2)
       case "${comp_prev}" in
+        help)
+          opts=${_SHELLB_COMMAND_ACTIONS}
+          ;;
         new|save|del|dellocal|run|runlocal|edit|editlocal|list|listlocal|purge)
           opts="reallySet"
           ;;

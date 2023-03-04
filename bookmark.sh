@@ -226,7 +226,7 @@ function shellb_bookmark_list_purge() {
 
 
 
-
+_SHELLB_BOOKMARK_ACTIONS="new del go edit list purge"
 
 function _shellb_bookmark_action() {
   _shellb_print_dbg "_shellb_bookmark_action($*)"
@@ -235,6 +235,9 @@ function _shellb_bookmark_action() {
   [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
 
   case ${action} in
+    help)
+      _shellb_print_err "unimplemented \"bookmark $action\""
+      ;;
     new)
       _shellb_print_err "unimplemented \"bookmark $action\""
       ;;
@@ -271,10 +274,13 @@ function _shellb_bookmark_completion_opts() {
 
   case ${comp_cword} in
     1)
-      opts="new del go edit list purge"
+      opts="${_SHELLB_BOOKMARK_ACTIONS} help"
       ;;
     2)
       case "${comp_prev}" in
+        help)
+          opts=${_SHELLB_BOOKMARK_ACTIONS}
+          ;;
         new|purge)
           opts=""
           ;;
