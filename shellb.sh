@@ -12,6 +12,7 @@
 ###############################################
 # paths
 _SHELLB_RC="$(realpath -q ~/.shellbrc)"
+_SHELLB_MODULES=("bookmark" "command" "note")
 
 # colors
 _SHELLB_COLOR_NONE="\e[m"
@@ -323,6 +324,10 @@ function shellb() {
       source "${_SHELLB_SOURCE_LOCATION}"
       _shellb_print_nfo "loaded (${_SHELLB_SOURCE_LOCATION} + ${_SHELLB_RC})"
       ;;
+    "module")
+      shift
+      _shellb_module_action "$@"
+      ;;
     *)
       _shellb_print_err "unknown command: ${1}"
       ;;
@@ -576,9 +581,31 @@ function _shellb_command_opts() {
   echo "${opts}"
 }
 
+function _shellb_module_invoke() {
+  local function_name module_name
+  _shellb_print_dbg "_shellb_module_invoke($*)"
+
+  function_name=$1
+  shift
+  module_name=$1
+  shift
+
+  eval "_shellb_${module_name}_${function_name} $*"
+}
+
+function _shellb_module_completion_opts() {
+  _shellb_print_dbg "_shellb_module_completion_opts($*)"
+  _shellb_module_invoke "completion_opts" "$@"
+}
+
+function _shellb_module_action() {
+  _shellb_print_dbg "_shellb_module_action($*)"
+  _shellb_module_invoke "action" "$@"
+}
+
 function _shellb_completions() {
   local cur prev opts notepads_column
-  local modifiers="bookmark command notepad help reload-config"
+  local modifiers="bookmark command notepad help reload-config module"
 
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
@@ -589,6 +616,25 @@ function _shellb_completions() {
     1)
       opts="${modifiers}"
       ;;
+    2)
+      case "${COMP_WORDS[1]}" in
+        bookmark)
+          opts="$(_shellb_bookmark_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
+          ;;
+        notepad)
+          opts="$(_shellb_notepad_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
+          ;;
+        command)
+          opts="$(_shellb_command_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
+          ;;
+        module)
+          # convert modules array to space delimeted options string
+          opts="${_SHELLB_MODULES[*]}"
+          ;;
+        *)
+          ;;
+        esac
+        ;;
     *)
       case "${COMP_WORDS[1]}" in
         bookmark)
@@ -599,6 +645,13 @@ function _shellb_completions() {
           ;;
         command)
           opts="$(_shellb_command_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
+          ;;
+        module)
+          local module comp_words comp_cword
+          module="${COMP_WORDS[2]}"
+          comp_cword=$(expr $COMP_CWORD - 2)
+          comp_words=( ${COMP_WORDS[@]:2} )
+          opts="$(_shellb_module_completion_opts "${module}" "${comp_cword}" "${comp_words[@]}")"
           ;;
       esac
       ;;
@@ -702,12 +755,11 @@ if [[ -n "${SHELB_DEVEL_DIR}" ]]; then
   # shellcheck source=command.sh
   source command.sh
 else
-# shellcheck source=./core.sh
-  source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/bookmark.sh"
-  # shellcheck source=./bookmark.sh
-  source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/bookmark.sh"
-  # shellcheck source=command.sh
-  source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/command.sh"
-  # shellcheck source=note.sh
-  source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/note.sh"
+  # shellcheck source=./core.sh
+  source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/core.sh"
+  
+  for module in "${_SHELLB_MODULES[@]}"; do
+    _shellb_print_nfo "load ${module}"
+    source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/${module}.sh"
+  done
 fi

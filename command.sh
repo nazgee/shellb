@@ -266,3 +266,44 @@ function shellb_command_find_del() {
   rm "${target}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
   _shellb_print_nfo "command deleted: ${target_cmd}"
 }
+
+
+
+
+
+
+function _shellb_command_action() {
+  _shellb_print_err "_shellb_command_action not implemented yet ($*)"
+}
+
+function _shellb_command_completion_opts() {
+  _shellb_print_dbg "_shellb_command_completion_opts($*)"
+
+  local comp_words comp_cword comp_cur comp_prev opts
+  comp_cword=$1
+  shift
+  comp_words=( $@ )
+  comp_cur="${comp_words[$comp_cword]}"
+  comp_prev="${comp_words[$comp_cword-1]}"
+
+  case ${comp_cword} in
+    1)
+      opts="set get"
+      ;;
+    2)
+      case "${comp_prev}" in
+        set)
+          opts="reallySet"
+          ;;
+        get)
+          opts="reallyGet"
+          ;;
+        *)
+          opts=""
+          ;;
+      esac
+      ;;
+  esac
+
+  echo "${opts}"
+}
