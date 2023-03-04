@@ -273,7 +273,49 @@ function shellb_command_find_del() {
 
 
 function _shellb_command_action() {
-  _shellb_print_err "_shellb_command_action not implemented yet ($*)"
+  _shellb_print_dbg "_shellb_command_action($*)"
+  local action
+  action=$1
+  [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
+
+  case ${action} in
+    new)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    save)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    del)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    dellocal)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    run)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    runlocal)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    edit)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    editlocal)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    list)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    listlocal)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    purge)
+      _shellb_print_err "unimplemented \"command $action\""
+      ;;
+    *)
+      _shellb_print_err "unknown action \"command $action\""
+      ;;
+  esac
 }
 
 function _shellb_command_completion_opts() {
@@ -288,17 +330,15 @@ function _shellb_command_completion_opts() {
 
   case ${comp_cword} in
     1)
-      opts="set get"
+      opts="new save del dellocal run runlocal edit editlocal list listlocal purge"
       ;;
     2)
       case "${comp_prev}" in
-        set)
+        new|save|del|dellocal|run|runlocal|edit|editlocal|list|listlocal|purge)
           opts="reallySet"
           ;;
-        get)
-          opts="reallyGet"
-          ;;
         *)
+          _shellb_print_wrn "unknown command \"${comp_cur}\""
           opts=""
           ;;
       esac

@@ -1,3 +1,4 @@
+
 # detects if the script is being sourced or not. exit if run directly, instead of being sourced
 (
   [[ -n $ZSH_VERSION && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
@@ -210,7 +211,43 @@ function shellb_notepad_list_del() {
 
 
 function _shellb_note_action() {
-  _shellb_print_err "_shellb_note_action not implemented yet ($*)"
+  _shellb_print_dbg "_shellb_note_action($*)"
+  local action
+  action=$1
+  [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
+
+  case ${action} in
+    edit)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    editlocal)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    del)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    dellocal)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    cat)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    catlocal)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    list)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    listlocal)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    purge)
+      _shellb_print_err "unimplemented \"note $action\""
+      ;;
+    *)
+      _shellb_print_err "unknown action \"note $action\""
+      ;;
+  esac
 }
 
 function _shellb_note_completion_opts() {
@@ -225,17 +262,15 @@ function _shellb_note_completion_opts() {
 
   case ${comp_cword} in
     1)
-      opts="set get"
+      opts="edit editlocal del dellocal cat catlocal list listlocal purge"
       ;;
     2)
       case "${comp_prev}" in
-        set)
-          opts="reallySet"
-          ;;
-        get)
-          opts="reallyGet"
+        edit|editlocal|del|dellocal|cat|catlocal|list|listlocal|purge)
+          opts="SOME_OPTS"
           ;;
         *)
+          _shellb_print_wrn "unknown command \"${comp_cur}\""
           opts=""
           ;;
       esac

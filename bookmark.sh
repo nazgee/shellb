@@ -229,7 +229,34 @@ function shellb_bookmark_list_purge() {
 
 
 function _shellb_bookmark_action() {
-  _shellb_print_err "_shellb_bookmark_action not implemented yet ($*)"
+  _shellb_print_dbg "_shellb_bookmark_action($*)"
+  local action
+  action=$1
+  [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
+
+  case ${action} in
+    new)
+      _shellb_print_err "unimplemented \"bookmark $action\""
+      ;;
+    del)
+      _shellb_print_err "unimplemented \"bookmark $action\""
+      ;;
+    go)
+      _shellb_print_err "unimplemented \"bookmark $action\""
+      ;;
+    edit)
+      _shellb_print_err "unimplemented \"bookmark $action\""
+      ;;
+    list)
+      _shellb_print_err "unimplemented \"bookmark $action\""
+      ;;
+    purge)
+      _shellb_print_err "unimplemented \"bookmark $action\""
+      ;;
+    *)
+      _shellb_print_err "unknown action \"bookmark $action\""
+      ;;
+  esac
 }
 
 function _shellb_bookmark_completion_opts() {
@@ -244,17 +271,18 @@ function _shellb_bookmark_completion_opts() {
 
   case ${comp_cword} in
     1)
-      opts="set get"
+      opts="new del go edit list purge"
       ;;
     2)
       case "${comp_prev}" in
-        set)
-          opts="reallySet"
+        new|purge)
+          opts=""
           ;;
-        get)
-          opts="reallyGet"
+        del|go|edit|list)
+          opts="SOME_NAMES"
           ;;
         *)
+          _shellb_print_wrn "unknown command \"${comp_cur}\""
           opts=""
           ;;
       esac
