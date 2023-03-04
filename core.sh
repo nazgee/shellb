@@ -13,6 +13,7 @@ fi
 echo "core loading..."
 
 _SHELLB_DB="$(realpath -q ~/.shellB)"
+_SHELLB_COLUMN_SEPARATOR=" | "
 
 ###############################################
 # helper functions
@@ -65,6 +66,38 @@ function _shellb_core_domain_files_find() {
   find "${domain_dir}/${user_dir}" -type f -name "${file_glob}" -printf "%P\n"
 }
 
+# filter row from stdin
+# ${1} - row number (first row is 1)
+function _shellb_core_filter_row() {
+  _shellb_print_dbg "_shellb_core_get_row($*)"
+  local i=1
+  while read -r line; do
+      if [ $i -eq $1 ]; then
+          echo "$line"
+      fi
+      i=$((i+1))
+  done
+}
+
+# filter column from stdin
+# ${1} - column number
+function _shellb_core_filter_column() {
+  while read -r line; do
+      echo "$line" | awk -F' \\| ' "{print \$${1}}"
+  done
+}
+
+# trims and compresses whitespaces in a given string
+# ${1} string to trim and compress
+function _shellb_core_string_trim_and_compress() {
+  echo "${1}" | awk '{$1=$1};1'
+}
+
+# trims whitespaces in a given string
+# ${1} string to trim
+function _shellb_core_string_trim() {
+  echo "${1}" | xargs
+}
 
 function _shellb_core_get_user_selection_column() {
   local list column target
@@ -77,7 +110,7 @@ function _shellb_core_get_user_selection_column() {
         echo "${target}"
         ;;
       *)
-        target=$(echo "${list}" | sed -n "${target}p" | awk "{print \$${column}}")
+        target=$(echo "${list}" | sed -n "${target}p" | xargs | awk -F' | \\| ' "{print \$${column}}")
         echo "${target}"
   esac
 }
@@ -156,6 +189,7 @@ function _shellb_core_calc_domaindir() {
   fi
 }
 
+# TODO remove
 # ${1} - shellb domain directory
 # ${2} - files to look for
 # ${3} - printout suffix
@@ -191,6 +225,7 @@ function _shellb_core_find_with_suffix() {
   return 0
 }
 
+# TODO remove
 # ${1} - shellb domain directory
 # ${2} - files to look for
 # ${3} - userspace directory (optional, if not provided, current directory is used)
@@ -198,6 +233,7 @@ function _shellb_core_find_as_row() {
   _shellb_core_find_with_suffix "${1}" "${2}"   " "   "-mindepth 1"   "${3}"
 }
 
+# TODO remove
 # ${1} - shellb domain directory
 # ${2} - files to look for
 # ${3} - userspace directory (optional, if not provided, current directory is used)
@@ -205,6 +241,7 @@ function _shellb_core_find_as_column() {
   _shellb_core_find_with_suffix "${1}" "${2}"   "\n"   "-mindepth 1"   "${3}"
 }
 
+# TODO remove
 # ${1} - shellb domain directory
 # ${2} - files to look for
 # ${3} - userspace directory (optional, if not provided, current directory is used)
@@ -212,6 +249,7 @@ function _shellb_core_list_as_row() {
   _shellb_core_find_with_suffix "${1}" "${2}"   " "   "-mindepth 1 -maxdepth 1"   "${3}"
 }
 
+# TODO remove
 # ${1} - shellb domain directory
 # ${2} - files to look for
 # ${3} - userspace directory (optional, if not provided, current directory is used)

@@ -158,48 +158,48 @@ function shellb_notepad_list() {
 # TODO add to shotrcuts/config
 function shellb_notepad_list_edit() {
   _shellb_print_dbg "shellb_notepad_list_edit($*)"
-  local notepads_list target user_dir
+  local list target user_dir
   user_dir="${1:-.}"
 
-  notepads_list=$(shellb_notepad_list "${user_dir}") || return 1
-  echo "${notepads_list}"
+  list=$(shellb_notepad_list "${user_dir}") || return 1
+  echo "${list}"
   _shellb_print_nfo "select notepad to edit:"
 
   # ask user to select a notepad, but omit the first line (header)
   # from a list that will be parsed by _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection_column "$(echo "${notepads_list}" | tail -n +2)" "2")
+  target=$(_shellb_core_get_user_selection_column "$(echo "${list}" | tail -n +2)" "2")
   shellb_notepad_edit "${user_dir}/$(dirname "${target}")"
 }
 
 # TODO add to shotrcuts/config
 function shellb_notepad_list_show() {
   _shellb_print_dbg "shellb_notepad_list_show($*)"
-  local notepads_list target user_dir
+  local list target user_dir
   user_dir="${1:-.}"
 
-  notepads_list=$(shellb_notepad_list "${user_dir}") || return 1
-  echo "${notepads_list}"
+  list=$(shellb_notepad_list "${user_dir}") || return 1
+  echo "${list}"
   _shellb_print_nfo "select notepad to show:"
 
   # ask user to select a notepad, but omit the first line (header)
   # from a list that will be parsed by _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection_column "$(echo "${notepads_list}" | tail -n +2)" "2")
+  target=$(_shellb_core_get_user_selection_column "$(echo "${list}" | tail -n +2)" "2")
   shellb_notepad_show "${user_dir}/$(dirname "${target}")"
 }
 
 # TODO add to shotrcuts/config
 function shellb_notepad_list_del() {
   _shellb_print_dbg "shellb_notepad_list_del($*)"
-  local notepads_list target user_dir
+  local list target user_dir
   user_dir="${1:-.}"
 
-  notepads_list=$(shellb_notepad_list "${user_dir}") || return 1
-  echo "${notepads_list}"
+  list=$(shellb_notepad_list "${user_dir}") || return 1
+  echo "${list}"
   _shellb_print_nfo "select notepad to delete:"
 
   # ask user to select a notepad, but omit the first line (header)
   # from a list that will be parsed by _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection_column "$(echo "${notepads_list}" | tail -n +2)" "2")
+  target=$(_shellb_core_get_user_selection_column "$(echo "${list}" | tail -n +2)" "2")
   shellb_notepad_del "${user_dir}/$(dirname "${target}")"
 }
 

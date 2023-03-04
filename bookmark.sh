@@ -38,17 +38,24 @@ function _shellb_bookmark_get() {
   cat "$(_shellb_bookmarks_calc_absfile "${1}")" 2> /dev/null
 }
 
+function _shellb_bookmark_is_alive() {
+  _shellb_print_dbg "_shellb_bookmark_is_alive(${1})"
+  # check if bookmark name is given
+  [ -n "${1}" ] || return 1
+  [ -d "$(_shellb_bookmark_get "${1}")" ]
+}
+
 function _shellb_bookmark_print_long_alive() {
-  printf "${_SHELLB_CFG_SYMBOL_CHECK} %-18s: %s\n" "${1}" "${2}"
+  printf "${_SHELLB_CFG_SYMBOL_CHECK} | %-18s | %s\n" "${1}" "${2}"
 }
 
 function _shellb_bookmark_print_long_dangling() {
-  printf "${_SHELLB_CFG_SYMBOL_CROSS} %-18s: ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
+  printf "${_SHELLB_CFG_SYMBOL_CROSS} | %-18s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
 }
 
 function _shellb_bookmark_print_long() {
   # check if target is "alive" or "dangling"
-  if [[ -d "${2}" ]]; then
+  if _shellb_bookmark_is_alive "$1"; then
     _shellb_bookmark_print_long_alive "${1}" "${2}"
   else
     _shellb_bookmark_print_long_dangling "${1}" "${2}"
@@ -152,9 +159,9 @@ function shellb_bookmark_list_long() {
   # print the bookmarks
   local i=1
   for bookmark in "${matched_bookmarks[@]}"; do
-    printf "%3s) " "${i}"
+    printf "%3s) | " "${i}"
     shellb_bookmark_get_long "${bookmark}"
-    i=$(($i+1))
+    i=$((i+1))
   done
 }
 
@@ -170,25 +177,39 @@ function shellb_bookmark_list_short() {
 }
 
 function shellb_bookmark_list_goto() {
-  local list target
+  local list selection target
+  # if no bookmarks matched -- exit immediatly
   list=$(shellb_bookmark_list_long "${1}")  || return 1
-  echo "$list"
 
-  _shellb_print_nfo "select bookmark to goto:"
-  # if number is given by the user, it will be translated to 3rd column
-  target=$(_shellb_core_get_user_selection_column "$list" "3")
-  shellb_bookmark_goto "${target}"
+  # if we have some bookmarks, let user choose
+  if [[ $(echo "${list}" | wc -l) -gt 1 ]]; then
+    echo "$list"
+    _shellb_print_nfo "select bookmark to goto:"
+    read -r selection || return 1
+  else
+    selection="1"
+  fi
+  target=$(echo "${list}" | _shellb_core_filter_row "${selection}" | _shellb_core_filter_column "3")
+
+  shellb_bookmark_goto "$(_shellb_core_string_trim "${target}")"
 }
 
 function shellb_bookmark_list_del() {
   local list target
+  # if no bookmarks matched -- exit immediatly
   list=$(shellb_bookmark_list_long "${1}")  || return 1
-  echo "$list"
 
-  _shellb_print_nfo "select bookmark to delete:"
-  # if number is given by the user, it will be translated to 3rd column
-  target=$(_shellb_core_get_user_selection_column "$list" "3")
-  shellb_bookmark_del "${target}"
+  # if we have some bookmarks, let user choose
+  if [[ $(echo "${list}" | wc -l) -gt 1 ]]; then
+    echo "$list"
+    _shellb_print_nfo "select bookmark to delete:"
+    read -r selection || return 1
+  else
+    selection="1"
+  fi
+  target=$(echo "${list}" | _shellb_core_filter_row "${selection}" | _shellb_core_filter_column "3")
+
+  shellb_bookmark_del "$(_shellb_core_string_trim "${target}")"
 }
 
 function shellb_bookmark_list_purge() {
@@ -197,27 +218,19 @@ function shellb_bookmark_list_purge() {
   _shellb_core_get_user_confirmation "This will remove \"dead\" bookmarks. Bookmarks to accessible directories will be kept unchanged. Proceed?" || return 0
 
   # display bookmark names and paths
-  local PURGED=0
+  local some_bookmarks_purged=0
   while read -r bookmark
   do
-    # get bookmarked directory and save it in target
-    local target
-    target=$(_shellb_bookmark_get "${bookmark}")
-
-    # delete any target that does not exist
-    # and print a banner message if any bookmark was deleted
-    if [[ ! -e "${target}" ]]; then
-      [ ${PURGED} -eq 0 ] && _shellb_print_nfo "purged \"dead\" bookmarks:"
+    # delete any bookmark that does not exist
+    if ! _shellb_bookmark_is_alive "${bookmark}"; then
+      [ ${some_bookmarks_purged} -eq 0 ] && _shellb_print_nfo "purged \"dead\" bookmarks:"
       # run in non-interactive mode
       shellb_bookmark_del "${bookmark}" "1"
-      PURGED=1
+      some_bookmarks_purged=1
     fi
-
-    # reset target
-    target=""
   done < <(_shellb_bookmark_glob "*")
 
-  [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were \"alive\")"
+  [ ${some_bookmarks_purged} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were \"alive\")"
 }
 
 _SHELLB_BOOKMARK_ACTIONS="new del go edit list purge"
@@ -231,18 +244,20 @@ function _shellb_bookmark_action() {
 
   case ${action} in
     help)
+      # TODO: implement help
       _shellb_print_err "unimplemented \"bookmark $action\""
       ;;
     new)
       shellb_bookmark_set "$@"
       ;;
     del)
-      shellb_bookmark_del "$@"
+      shellb_bookmark_list_del "$@"
       ;;
     go)
-      shellb_bookmark_goto "$@"
+      shellb_bookmark_list_goto "$@"
       ;;
     edit)
+      # TODO: implement edit
       _shellb_print_err "unimplemented \"bookmark $action\""
       ;;
     list)
