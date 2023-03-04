@@ -27,16 +27,8 @@ function _shellb_bookmarks_calc_absfile() {
   _shellb_core_calc_absfile "${1}" "${_SHELLB_DB_BOOKMARKS}" "/"
 }
 
-function _shellb_bookmarks_column() {
-  # list bookmarks in a row (line by line)
-  # we do it in subshell to avoid changing directory for whoever called us
-  (_shellb_core_find_as_column "${_SHELLB_DB_BOOKMARKS}" "${1:-*}" "/")
-}
-
-function _shellb_bookmarks_row() {
-  # list bookmarks in a single line
-  # we do it in subshell to avoid changing directory for whoever called us
-  (_shellb_core_find_as_row "${_SHELLB_DB_BOOKMARKS}" "${1:-*}" "/") && echo ""
+function _shellb_bookmark_glob(){
+  _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${1}" "/"
 }
 
 function _shellb_bookmark_get() {
@@ -55,7 +47,7 @@ function _shellb_bookmark_print_long_dangling() {
 }
 
 function _shellb_bookmark_print_long() {
-  # check if TARGET is "alive" or "dangling"
+  # check if target is "alive" or "dangling"
   if [[ -d "${2}" ]]; then
     _shellb_bookmark_print_long_alive "${1}" "${2}"
   else
@@ -98,12 +90,18 @@ function shellb_bookmark_set() {
   shellb_bookmark_get_long "${1}"
 }
 
+# $1 name of bookmark to delete
+# $2 if given, don't ask for confirmation
 function shellb_bookmark_del() {
+  local bookmark_name assume_yes
+  bookmark_name="${1}"
+  assume_yes="${2}"
+
   _shellb_print_dbg "shellb_bookmark_del(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
   [ -e "$(_shellb_bookmarks_calc_absfile "${1}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
-  _shellb_core_get_user_confirmation "delete \"${1}\" bookmark?" || return 0
+  [ -n "${assume_yes}" ] || _shellb_core_get_user_confirmation "delete \"${1}\" bookmark?" || return 0
   rm "$(_shellb_bookmarks_calc_absfile "${1}")" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
@@ -120,10 +118,10 @@ function shellb_bookmark_get_short() {
 function shellb_bookmark_get_long() {
   _shellb_print_dbg "shellb_bookmark_get_long(${1})"
 
-  # check if bookmark is known, and save it in TARGET
-  local TARGET
-  TARGET=$(shellb_bookmark_get_short "$1") || return 1 # error message already printed
-  _shellb_bookmark_print_long "${1}" "${TARGET}"
+  # check if bookmark is known, and save it in target
+  local target
+  target=$(shellb_bookmark_get_short "$1") || return 1 # error message already printed
+  _shellb_bookmark_print_long "${1}" "${target}"
 }
 
 function shellb_bookmark_goto() {
@@ -136,38 +134,41 @@ function shellb_bookmark_goto() {
   [ -e "$(_shellb_bookmarks_calc_absfile "${1}")" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
 
   # get bookmarked directory
-  local TARGET
-  TARGET=$(_shellb_bookmark_get "${1}") || _shellb_print_err "goto bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  local target
+  target=$(_shellb_bookmark_get "${1}") || _shellb_print_err "goto bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
 
   # go to bookmarked directory
-  cd "${TARGET}" || _shellb_print_err "goto bookmark failed, bookmark to dangling directory or no permissions to enter it" || return 1
+  cd "${target}" || _shellb_print_err "goto bookmark failed, bookmark to dangling directory or no permissions to enter it" || return 1
 }
 
 function shellb_bookmark_list_long() {
-  _shellb_print_dbg "shellb_bookmark_list_long(${1})"
+  _shellb_print_dbg "shellb_bookmark_list_long($*)"
 
-  local notepads_seen=0 i=1
-  # display long form of all bookmarks or only those starting with given string
-  while read -r bookmark
-  do
-    notepads_seen=1
+  # fetch all bookmarks or only those starting with given glob expression
+  mapfile -t matched_bookmarks < <(_shellb_bookmark_glob "${1}")
+  # check any bookmarks were found
+  [ ${#matched_bookmarks[@]} -gt 0 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
+
+  # print the bookmarks
+  local i=1
+  for bookmark in "${matched_bookmarks[@]}"; do
     printf "%3s) " "${i}"
     shellb_bookmark_get_long "${bookmark}"
     i=$(($i+1))
-  done < <(_shellb_bookmarks_column "${1}")
-
-  # if no notepads seen, return error
-  [ "${notepads_seen}" -eq 1 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
+  done
 }
 
 function shellb_bookmark_list_short() {
-  _shellb_print_dbg "shellb_bookmark_list_short(${1})"
+  _shellb_print_dbg "shellb_bookmark_list_short($*)"
 
-  # display short form of all bookmarks or only those starting with given string
-  _shellb_bookmarks_row "${1}" || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
+  # fetch all bookmarks or only those starting with given glob expression
+  mapfile -t matched_bookmarks < <(_shellb_bookmark_glob "${1}")
+  # check any bookmarks were found
+  [ ${#matched_bookmarks[@]} -gt 0 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
+  # print the bookmarks
+  echo "${matched_bookmarks[@]}"
 }
 
-# TODO add to shotrcuts/config
 function shellb_bookmark_list_goto() {
   local list target
   list=$(shellb_bookmark_list_long "${1}")  || return 1
@@ -179,7 +180,6 @@ function shellb_bookmark_list_goto() {
   shellb_bookmark_goto "${target}"
 }
 
-# TODO add to shotrcuts/config
 function shellb_bookmark_list_del() {
   local list target
   list=$(shellb_bookmark_list_long "${1}")  || return 1
@@ -200,31 +200,25 @@ function shellb_bookmark_list_purge() {
   local PURGED=0
   while read -r bookmark
   do
-    # get bookmarked directory and save it in TARGET
-    local TARGET
-    TARGET=$(_shellb_bookmark_get "${bookmark}")
+    # get bookmarked directory and save it in target
+    local target
+    target=$(_shellb_bookmark_get "${bookmark}")
 
     # delete any target that does not exist
     # and print a banner message if any bookmark was deleted
-    if [[ ! -e "${TARGET}" ]]; then
+    if [[ ! -e "${target}" ]]; then
       [ ${PURGED} -eq 0 ] && _shellb_print_nfo "purged \"dead\" bookmarks:"
-      shellb_bookmark_del "${bookmark}"
+      # run in non-interactive mode
+      shellb_bookmark_del "${bookmark}" "1"
       PURGED=1
     fi
 
-    # reset TARGET
-    TARGET=""
-  done < <(_shellb_bookmarks_column)
+    # reset target
+    target=""
+  done < <(_shellb_bookmark_glob "*")
 
   [ ${PURGED} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were \"alive\")"
 }
-
-
-
-
-
-
-
 
 _SHELLB_BOOKMARK_ACTIONS="new del go edit list purge"
 
@@ -232,6 +226,7 @@ function _shellb_bookmark_action() {
   _shellb_print_dbg "_shellb_bookmark_action($*)"
   local action
   action=$1
+  shift
   [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
 
   case ${action} in
@@ -239,22 +234,22 @@ function _shellb_bookmark_action() {
       _shellb_print_err "unimplemented \"bookmark $action\""
       ;;
     new)
-      _shellb_print_err "unimplemented \"bookmark $action\""
+      shellb_bookmark_set "$@"
       ;;
     del)
-      _shellb_print_err "unimplemented \"bookmark $action\""
+      shellb_bookmark_del "$@"
       ;;
     go)
-      _shellb_print_err "unimplemented \"bookmark $action\""
+      shellb_bookmark_goto "$@"
       ;;
     edit)
       _shellb_print_err "unimplemented \"bookmark $action\""
       ;;
     list)
-      _shellb_print_err "unimplemented \"bookmark $action\""
+      shellb_bookmark_list_long "$@"
       ;;
     purge)
-      _shellb_print_err "unimplemented \"bookmark $action\""
+      shellb_bookmark_list_purge "$@"
       ;;
     *)
       _shellb_print_err "unknown action \"bookmark $action\""
@@ -285,7 +280,7 @@ function _shellb_bookmark_completion_opts() {
           opts=""
           ;;
         del|go|edit|list)
-          opts="SOME_NAMES"
+          opts="$(shellb_bookmark_list_short "*")"
           ;;
         *)
           _shellb_print_wrn "unknown command \"${comp_cur}\""

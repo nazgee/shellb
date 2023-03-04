@@ -41,9 +41,31 @@ function _shellb_print_err() {
   return 1
 }
 
-###############################################
-# core functions
-###############################################
+function _shellb_core_domain_files_ls() {
+  _shellb_print_dbg "_shellb_core_domain_files_list($*)"
+  local domain_dir user_dir file_glob
+  domain_dir="${1}"
+  file_glob="${2}"
+  user_dir="${3}"
+  [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
+  [ -n "${file_glob}" ] || file_glob="*"
+  [ -n "${user_dir}" ] || user_dir="."
+  find "${domain_dir}/${user_dir}" -maxdepth 1 -type f -name "${file_glob}" -printf "%P\n"
+}
+
+function _shellb_core_domain_files_find() {
+  _shellb_print_dbg "_shellb_core_domain_dirs_list($*)"
+  local domain_dir user_dir file_glob
+  domain_dir="${1}"
+  file_glob="${2}"
+  user_dir="${3}"
+  [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
+  [ -n "${file_glob}" ] || file_glob="*"
+  [ -n "${user_dir}" ] || user_dir="."
+  find "${domain_dir}/${user_dir}" -type f -name "${file_glob}" -printf "%P\n"
+}
+
+
 function _shellb_core_get_user_selection_column() {
   local list column target
   list="${1}"
