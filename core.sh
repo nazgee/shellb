@@ -172,8 +172,59 @@ function _shellb_core_calc_domainfile() {
   local file domain
   file="${1}"
   domain="${2}"
-  realpath -m --relative-to "${domain}" "${file}"
+  realpath -mq --relative-to "${domain}" "${file}"
 }
+
+
+
+
+
+
+# Returns absolute file or directory path, translated into a given domain. Always succeeds.
+# ${1} - user dir or file
+# ${2} - shellb domain directory
+function _shellb_core_calc_domain_from_user() {
+  _shellb_print_dbg "_shellb_core_calc_domain_from_user($*)"
+  local file_user domain
+  file_user="$(realpath -mq "${1}")"
+  domain="${2}"
+  echo "${domain}/${file_user}" | tr -s /
+}
+
+# Returns absolute file path translated into a given domain.
+# Will fail if file does not exist in the domain
+# ${1} - user filename
+# ${2} - shellb domain directory
+function _shellb_core_file_get_domain_from_user() {
+  _shellb_print_dbg "_shellb_core_file_get_domain_from_user($*)"
+  local in_domain
+  in_domain=$(_shellb_core_calc_domain_from_user "${1}" "${2}")
+  [ -f "${in_domain}" ] || _shellb_print_err "file '${in_domain}' does not exist in \"${2}\" domain" || return 1
+  echo "${in_domain}"
+}
+
+# Returns absolute directory path translated into a given domain.
+# Will fail if directory does not exist in the domain.
+# ${1} - user dirname
+# ${2} - shellb domain directory
+function _shellb_core_dir_get_domain_from_user() {
+  _shellb_print_dbg "_shellb_core_file_get_domain_from_user($*)"
+  local in_domain
+  in_domain=$(_shellb_core_calc_domain_from_user "${1}" "${2}")
+  [ -d "${in_domain}" ] || _shellb_print_err "directory '${in_domain}' does not exist in \"${2}\" domain" || return 1
+  echo "${in_domain}"
+}
+
+# Translates absolute dir/file path into protocol path
+# ${1} - absolute dir/file path (under domain)
+# ${2} - domain
+function _shellb_core_calc_domainrel_from_abs() {
+  local path=$(echo "${1#"$2"}" | tr -s /)
+  echo "${_SHELLB_CFG_PROTO}${path#"/"}"
+}
+
+
+
 
 # ${1} - shellb domain directory
 # ${2} - userspace directory (optional, if not provided, current directory is used)
@@ -187,6 +238,75 @@ function _shellb_core_calc_domaindir() {
   else
     realpath -m --relative-to "${domain}" "${dir}"
   fi
+}
+
+# Generate mixture of user-directories and shellb-resources for completion
+# All user directories will be completed, but only existing shellb resource-files will be shown
+# e.g. for "../" completion:
+#    ../zzzzzz/    ../foo.md
+#    ../bar.md     ../dirb/
+# it will generate a list of user directories, as well as existing shellb resources.
+# - existing user dirs:         "../zzzzzzz/" "../dirb/"
+# - existing shellb resources:  "../bar.md"   "../foo.md"
+#
+# When non-empty $1 will be provided, non-exisiting shelb resource will be listed
+# under the directory of a currently shown completion, with a name given by $1
+# e.g. for "../" completion and $1="aaaaaaaaaa.md":
+#    ../zzzzzz/    ../foo.md     ../aaaaaaaaaa.md
+#    ../bar.md     ../dirb/
+# - existing user dirs:         "../zzzzzzz/" "../dirb/"
+# - existing shellb resources:  "../bar.md"   "../foo.md"
+# - non-existing shellb resource: "../aaaaaaaaaa.md"
+#
+# $1 - shellb domain
+# $2 - optional, shellb-resource glob
+# $3 - optional, name of a non-existing shellb-resource
+# $4 - optional, additional completions to be added to the list
+function _shellb_core_compgen() {
+  _shellb_print_dbg "_shellb_core_compgen($*)"
+
+  local domain resource_glob extra_file extra_opts comp_cword comp_words comp_cur
+  local opts_dirs opts_file opts_resources
+
+  domain="${1}"
+  resource_glob="${2}"
+  extra_file="${3}"
+  extra_opts="${4}"
+  comp_cword="${COMP_CWORD}"
+  comp_words=( ${COMP_WORDS[@]} )
+  comp_cur="${comp_words[$comp_cword]}"
+
+  if [ -n "${extra_file}" ]; then
+    if realpath -eq "${cur:-./}" > /dev/null ; then
+      # remove potential double slashes
+      opts_file="$(echo "${cur:-./}/${extra_file}" | tr -s /)"
+    else
+      opts_file="$(dirname "${cur:-./}")/${extra_file}"
+    fi
+  fi
+
+  # get all directories and files in direcotry of current word
+  opts_dirs=$(compgen -d -S '/' -- "${cur:-.}")
+
+  # look for resources in domain if resource_glob is provided
+  if [ -n "${resource_glob}" ]; then
+    local comp_cur_dir
+    # translate current completion to a directory
+    comp_cur_dir=$(_shellb_notepad_completion_to_dir "${comp_cur}")
+
+    # check what files are in _SHELLB_DB_NOTES for current completion word
+    # and for all dir-based completions
+    for dir in ${opts_dirs} ${comp_cur_dir} ; do
+      files_in_domain_dir=$(_shellb_core_domain_files_ls "${domain}" "${resource_glob}" "$(realpath "${dir}")" 2>/dev/null)
+      for file_in_domain_dir in ${files_in_domain_dir} ; do
+        opts_resources="${opts_resources} $(echo "${dir}/${file_in_domain_dir}" | tr -s /)"
+      done
+    done
+  fi
+
+  # we want no space added after file/dir completion
+  compopt -o nospace
+  COMPREPLY=( $(compgen -o nospace -W "${opts_dirs} ${opts_file} ${opts_resources} ${extra_opts}" -- ${cur}) )
 }
 
 # TODO remove
