@@ -21,61 +21,8 @@ _SHELLB_DB_COMMANDS="${_SHELLB_DB}/commands"
 [ ! -e "${_SHELLB_DB_COMMANDS}" ] && mkdir -p "${_SHELLB_DB_COMMANDS}"
 
 ###############################################
-# command functions
+# command functions - basic
 ###############################################
-# ${1} - optional directory to calculate command dir for
-function _shellb_command_calc_absdir() {
-  _shellb_print_dbg "_shellb_command_calc_absdir($*)"
-  _shellb_core_calc_absdir "${_SHELLB_DB_COMMANDS}" "${1}"
-}
-
-# ${1} - command file name
-# ${2} - optional directory to calculate command file for
-function _shellb_command_calc_absfile() {
-  _shellb_print_dbg "_shellb_command_calc_absfile($*)"
-  _shellb_core_calc_absfile "${1}" "${_SHELLB_DB_COMMANDS}" "${2}"
-}
-
-# ${1} - command file name
-# ${2} - optional directory to calculate command file for
-function _shellb_command_calc_domainfile() {
-  _shellb_print_dbg "_shellb_command_calc_domainfile($*)"
-  local command_absfile
-  command_absfile="$(_shellb_command_calc_absfile "${1}" "${2}")"
-  echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domainfile "${command_absfile}" "${_SHELLB_DB_COMMANDS}")"
-}
-
-# ${1} - optional directory to calculate command dir for
-function _shellb_command_calc_domaindir() {
-  _shellb_print_dbg "_shellb_command_calc_domaindir($*)"
-  local command_absdir
-  command_absdir="$(_shellb_command_calc_absdir "${1}")"
-  echo "${_SHELLB_CFG_PROTO}$(_shellb_core_calc_domaindir "${_SHELLB_DB_COMMANDS}" "${command_absdir}")"
-}
-
-function _shellb_command_list_column() {
-  _shellb_core_list_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}" | sort
-}
-
-function _shellb_command_list_column_unique() {
-  _shellb_command_list_column "${1}" | uniq
-}
-
-function _shellb_command_list_row() {
-  _shellb_core_list_as_row "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"  && echo ""
-}
-
-function _shellb_command_find_column() {
-  _shellb_core_find_as_column "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}" | sort
-}
-
-function _shellb_command_find_column_unique() {
-  _shellb_command_find_column "${1}" | uniq
-}
-
-function _shellb_command_find_row() {
-  _shellb_core_find_as_row "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${1}"  && echo ""
-}
 
 function _shellb_command_generate_filename() {
   _shellb_print_dbg "_shellb_command_generate_filename()"
@@ -84,28 +31,49 @@ function _shellb_command_generate_filename() {
   echo "${cmd_file}.${_SHELLB_CFG_COMMAND_EXT}"
 }
 
+# List command files matching given command
+# $1 - command to match
+# $2 - user dir to search for already installed commands
+function _shellb_command_list_matching() {
+  local target user_dir available_cmd_files
+  target="${1}"
+  user_dir="${2}"
+
+  mapfile -t available_cmd_files < <(_shellb_core_domain_files_ls "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
+  for cmd_file in "${available_cmd_files[@]}"; do
+    if _shellb_core_is_same_as_file "${target}" "${domain_dir}/${cmd_file}"; then
+      echo "${domain_dir}/${cmd_file}"
+    fi
+  done
+}
+
 # ${1} - command string
 # ${2} - directory to save command for
 function _shellb_command_save() {
   _shellb_print_dbg "shellb_command_save($*)"
-  local command_string user_dir cmd_file cmd_asbfile cmd_domainfile
+  local command_string user_dir domain_dir matched_command_files cmd_file cmd_absfile cmd_domainfile
   command_string="${1}"
-  user_dir="${2}"
-  cmd_file="$(_shellb_command_generate_filename)"
-  cmd_absfile="$(_shellb_command_calc_absfile "${cmd_file}" "${user_dir}")"
-  cmd_domainfile="$(_shellb_command_calc_domainfile "${cmd_file}" "${user_dir}")"
+  user_dir="$(realpath -eq "${2:-.}" 2>/dev/null)" || _shellb_print_err "\"${2:-.}\" is not a valid dir" || return 1
+  domain_dir=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
 
-  _shellb_print_dbg "saving command: <${command_string}> to ${cmd_domainfile} / ${cmd_absfile}"
-  mkdir -p "$(dirname "${cmd_absfile}")" || _shellb_print_wrn_fail "failed to create directory \"${cmd_absfile}\" for <${command_string}> command" || return 1
-  echo "${command_string}" > "${cmd_absfile}" || _shellb_print_wrn_fail "failed to save command <${command_string}> to \"${cmd_absfile}\"" || return 1
+  # check if command is already installed, and exit if it is
+  mapfile -t matched_command_files < <(_shellb_command_list_matching "${command_string}" "${user_dir}")
+  if [ ${#matched_command_files[@]} -gt 0 ]; then
+    _shellb_print_wrn "command <${command_string}> is already available for ${user_dir}, skipping"
+    return 0
+  fi
+  cmd_file="$(_shellb_command_generate_filename)"
+
+  mkdir -p "${domain_dir}" || _shellb_print_wrn_fail "failed to create directory \"${domain_dir}\" for <${command_string}> command" || return 1
+  echo "${command_string}" > "${domain_dir}/${cmd_file}" || _shellb_print_wrn_fail "failed to save command <${command_string}> to \"${domain_dir}/${cmd_file}\"" || return 1
 }
 
 # ${1} - directory to save command for. default is current dir
 function shellb_command_save_previous() {
   local command_string user_dir
-  user_dir="${1:-.}"
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
   command_string=$(history | tail -n 2 | head -n 1 | sed 's/[0-9 ]*//')
-  _shellb_print_nfo "saving previous command: (edit & confirm with ENTER or cancel with ctrl-c)"
+  _shellb_print_nfo "save previous command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
   read -e -p "$ " -i "${command_string}" command_string
   _shellb_command_save "${command_string}" "${user_dir}"
 }
@@ -113,41 +81,10 @@ function shellb_command_save_previous() {
 # ${1} - directory to save command for. default is current dir
 function shellb_command_save_interactive() {
   local command_string user_dir
-  user_dir="${1:-.}"
-  _shellb_print_nfo "saving previous command (edit & confirm with ENTER or cancel with ctrl-c):"
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
+  _shellb_print_nfo "save new command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
   read -r -e -p "$ " command_string || return 1
   _shellb_command_save "${command_string}" "${user_dir}"
-}
-
-function _shellb_command_list_print_menu() {
-  _shellb_print_dbg "_shellb_command_list_print_menu($*)"
-  local cmd_absdir user_dir seen i=1
-  seen=0
-  user_dir="${1:-.}"
-  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
-  while read -r commandfile
-  do
-    seen=1
-    # display only the part of the path that is not the commands directory
-    printf "%3s) %s\n" "${i}" "$(cat "${cmd_absdir}/${commandfile}")"
-    i=$(($i+1))
-  done < <(_shellb_command_list_column_unique "${user_dir}") || return 1
-
-  # if no commands seen, return error
-  [ "${seen}" -eq 1 ] || return 1
-}
-
-# TODO add to shotrcuts/config
-function shellb_command_list() {
-  _shellb_print_dbg "shellb_command_list($*)"
-  local commands_list user_dir command_domaindir
-
-  user_dir="${1:-.}"
-  command_domaindir="$(_shellb_command_calc_domaindir "${user_dir}")"
-
-  commands_list=$(_shellb_command_list_print_menu "${user_dir}") || _shellb_print_err "command list failed, no commands in \"${command_domaindir}\"" || return 1
-  _shellb_print_nfo "commands in \"${command_domaindir}\":"
-  echo "${commands_list}"
 }
 
 # ${1} command to execute
@@ -157,125 +94,164 @@ function _shellb_command_exec() {
   eval "${target}"
 }
 
-# TODO add to shotrcuts/config
+###############################################
+# command functions - list
+###############################################
+
+# Lists commands in given directory, or returns 1 if none found or given dir is invalid
+# $1 - user directory to list command for (default: current dir)
+function shellb_command_list() {
+  _shellb_print_dbg "shellb_command_list($*)"
+
+  # parse args, init variables and do sanity checks
+  local user_dir domain_dir_abs domain_dir_proto command_file i=0
+  user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || _shellb_print_err "\"${1}\" is not a valid dir" || return 1
+  [ -d "${user_dir}" ] || _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" || return 1
+  domain_dir_abs=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+  domain_dir_proto=$(_shellb_core_calc_domainrel_from_abs "${domain_dir_abs}" "${_SHELLB_DB_COMMANDS}")
+
+  # fetch all commands under given domain dir
+  mapfile -t matched_commands < <(_shellb_core_domain_files_ls "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
+  # check if any commands were found
+  [ ${#matched_commands[@]} -gt 0 ] || _shellb_print_err "no commands in \"${domain_dir_proto}\"" || return 1
+
+  # print commands
+  _shellb_print_nfo "commands in ${domain_dir_proto}"
+  for command_file in "${matched_commands[@]}"; do
+    i=$((i+1))
+    printf "%3s) | %s | %s\n" "${i}" "${command_file}" "$(cat "${domain_dir_abs}/${command_file}")"
+  done
+}
+
+# Open a list of commands installed for given dir, and allow user to select which one should executed
+# $1 - optional directory to list command for (default: current dir)
 function shellb_command_list_exec() {
   _shellb_print_dbg "shellb_command_list_exec($*)"
-  local commands_list target user_dir
-  user_dir="${1:-.}"
+  local list target selection user_dir
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
 
-  commands_list=$(shellb_command_list "${user_dir}") || return 1
-  echo "${commands_list}"
+  list=$(shellb_command_list "${user_dir}") || return 1
+  echo "${list}"
   _shellb_print_nfo "select command to execute:"
 
-  # ask user to select a command, but omit the first line (header)
-  # from a list that is given to _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
+  read -r selection || return 1
+  target="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
+
+  [ -n "${target}" ] || _shellb_print_err "command list exec failed, no command" || return 1
   _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
   read -r -e -p "$ " -i "${target}" target && history -s "${target}" && _shellb_command_exec "${target}"
 }
 
-# TODO add to shotrcuts/config
+# Open a list of commands installed for given dir, and allow user to select which one should be deleted
+# $1 - optional directory to list command for (default: current dir)
 function shellb_command_list_del() {
   _shellb_print_dbg "shellb_command_list_del($*)"
-  local commands_list user_dir targets target_cmd cmd_absdir
-  user_dir="${1:-.}"
+  local list target selection user_dir domain_dir target_cmd matching_cmd_files
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
+  domain_dir=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
 
-  commands_list=$(shellb_command_list "${user_dir}") || return 1
-  echo "${commands_list}"
+  list=$(shellb_command_list "${user_dir}") || return 1
+  echo "${list}"
   _shellb_print_nfo "select command to delete:"
 
-  # ask user to select a command, but omit the first line (header)
-  # from a list that is given to _shellb_core_get_user_selection
-  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
-  target_command=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
-  targets=$(_shellb_core_list_files_matching_content_as_column "${target_command}" "${cmd_absdir}" "*.${_SHELLB_CFG_COMMAND_EXT}") \
-      || _shellb_print_err "command delete failed, file with \"${target_command}\" not found in \"${cmd_absdir}\"" || return 1
+  read -r selection || return 1
+  target="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
 
-  target_cmd="$(cat "${targets}")"
-  rm "${targets}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
-  _shellb_print_nfo "command deleted: ${target_cmd}"
+  mapfile -t matching_cmd_files < <(_shellb_command_list_matching "${target}" "${user_dir}")
+  for cmd_file in "${matching_cmd_files[@]}"; do
+    rm "${cmd_file}"
+  done
+
+  _shellb_print_nfo "command deleted: ${target}"
 }
 
-# TODO add to shotrcuts/config
-function _shellb_command_find_print_menu() {
-  _shellb_print_dbg "_shellb_command_find_print_menu($*)"
-  local cmd_absdir user_dir seen i=1
-  seen=0
-  user_dir="${1:-.}"
-  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
-  while read -r commandfile
-  do
-    seen=1
-    # display only the part of the path that is not the notepad directory
-    printf "%3s) %s\n" "${i}" "$(cat "${cmd_absdir}/${commandfile}")"
-    i=$(($i+1))
-  done < <(_shellb_command_find_column_unique "${user_dir}") || return 1
+###############################################
+# command functions - find
+###############################################
 
-  # if no notepads seen, return error
-  [ "${seen}" -eq 1 ] || return 1
-}
-
-# TODO add to shotrcuts/config
+# Lists commands below given directory, or returns 1 if none found or given dir is invalid
+# $1 - user directory to list command for (default: current dir)
 function shellb_command_find() {
   _shellb_print_dbg "shellb_command_find($*)"
-  local commands_list user_dir command_domaindir
 
-  user_dir="${1:-.}"
-  command_domaindir="$(_shellb_command_calc_domaindir "${user_dir}")"
-  # if cur is empty, we're completing bookmark name
-  commands_list=$(_shellb_command_find_print_menu "${user_dir}") || _shellb_print_err "command find failed, no commands in \"${command_domaindir}\"" || return 1
-  _shellb_print_nfo "commands below \"${command_domaindir}\":"
-  echo "${commands_list}"
+  # parse args, init variables and do sanity checks
+  local user_dir domain_dir_abs domain_dir_proto command_file i=0
+  user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || _shellb_print_err "\"${1}\" is not a valid dir" || return 1
+  [ -d "${user_dir}" ] || _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" || return 1
+  domain_dir_abs=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+  domain_dir_proto=$(_shellb_core_calc_domainrel_from_abs "${domain_dir_abs}" "${_SHELLB_DB_COMMANDS}")
+
+  # fetch all commands under given domain dir
+  mapfile -t matched_commands < <(_shellb_core_domain_files_find "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
+  # check if any commands were found
+  [ ${#matched_commands[@]} -gt 0 ] || _shellb_print_err "no commands below \"${domain_dir_proto}\"" || return 1
+
+  # print commands
+  _shellb_print_nfo "commands below ${domain_dir_proto}"
+  for command_file in "${matched_commands[@]}"; do
+    i=$((i+1))
+    printf "%3s) | %s | %s\n" "${i}" "${command_file}" "$(cat "${domain_dir_abs}/${command_file}")"
+  done
 }
 
 # TODO add to shotrcuts/config
 function shellb_command_find_exec() {
-  _shellb_print_dbg "shellb_command_find_exec($*)"
-  local commands_list target user_dir
-  user_dir="${1:-.}"
+  _shellb_print_dbg "shellb_command_list_exec($*)"
+  local list target selection user_dir
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
 
-  commands_list=$(shellb_command_find "${user_dir}") || return 1
-  echo "${commands_list}"
+  list=$(shellb_command_find "${user_dir}") || return 1
+  echo "${list}"
   _shellb_print_nfo "select command to execute:"
 
-  # ask user to select a command, but omit the first line (header)
-  # from a list that is given to _shellb_core_get_user_selection
-  target=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
+  read -r selection || return 1
+  target="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
+
+  [ -n "${target}" ] || _shellb_print_err "command list exec failed, no command" || return 1
   _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
   read -r -e -p "$ " -i "${target}" target && history -s "${target}" && _shellb_command_exec "${target}"
 }
 
 # TODO add to shotrcuts/config
 function shellb_command_find_del() {
-  _shellb_print_dbg "shellb_command_find_del($*)"
-  local commands_list user_dir target target_cmd
-  user_dir="${1:-.}"
+  _shellb_print_dbg "shellb_command_list_del($*)"
+  local list target selection user_dir domain_dir target_cmd matching_cmd_files
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
+  domain_dir=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
 
-  commands_list=$(shellb_command_find "${user_dir}") || return 1
-  echo "${commands_list}"
+  list=$(shellb_command_find_exec "${user_dir}") || return 1
+  echo "${list}"
   _shellb_print_nfo "select command to delete:"
 
-  # ask user to select a command, but omit the first line (header)
-  # from a list that is given to _shellb_core_get_user_selection
-  cmd_absdir="$(_shellb_command_calc_absdir "${user_dir}")"
-  target_command=$(_shellb_core_get_user_selection_whole "$(echo "${commands_list}" | tail -n +2)")
-  target=$(_shellb_core_find_files_matching_content_as_column "${target_command}" "${cmd_absdir}" "*.${_SHELLB_CFG_COMMAND_EXT}") \
-      || _shellb_print_err "command delete failed, file with \"${target_command}\" not found below \"${cmd_absdir}\"" || return 1
+  read -r selection || return 1
+  target="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
 
-  target_cmd="$(cat "${target}")"
-  rm "${target}" || _shellb_print_err "command delete failed, could not delete file ${target}" || return 1
-  _shellb_print_nfo "command deleted: ${target_cmd}"
+  mapfile -t matching_cmd_files < <(_shellb_command_list_matching "${target}" "${user_dir}")
+  for cmd_file in "${matching_cmd_files[@]}"; do
+    rm "${cmd_file}"
+  done
+
+  _shellb_print_nfo "command deleted: ${target}"
 }
 
+###############################################
+# command functions - compgen
+###############################################
 
 
 
-_SHELLB_COMMAND_ACTIONS="new save del dellocal run runlocal edit editlocal list listlocal purge"
+
+
+
+
+
+_SHELLB_COMMAND_ACTIONS="new save del run edit list purge"
 
 function _shellb_command_action() {
   _shellb_print_dbg "_shellb_command_action($*)"
   local action
   action=$1
+  shift
   [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
 
   case ${action} in
@@ -283,34 +259,70 @@ function _shellb_command_action() {
     _shellb_print_err "unimplemented \"command $action\""
       ;;
     new)
-      _shellb_print_err "unimplemented \"command $action\""
+      shellb_command_save_interactive "$@"
       ;;
     save)
-      _shellb_print_err "unimplemented \"command $action\""
+      shellb_command_save_previous "$@"
       ;;
     del)
-      _shellb_print_err "unimplemented \"command $action\""
-      ;;
-    dellocal)
-      _shellb_print_err "unimplemented \"command $action\""
+      local arg="$1"
+      shift
+      case "${arg}" in
+        -a|--all)
+          shellb_command_find_del "/"
+          ;;
+        -c|--current)
+          shellb_command_list_del "$@"
+          ;;
+        -r|--recursive)
+          shellb_command_find_del "$@"
+          ;;
+        *)
+          _shellb_print_err "unknown scope \"${arg}\" passed to \"command $action\""
+          return 1
+          ;;
+      esac
       ;;
     run)
-      _shellb_print_err "unimplemented \"command $action\""
-      ;;
-    runlocal)
-      _shellb_print_err "unimplemented \"command $action\""
+      local arg="$1"
+      shift
+      case "${arg}" in
+        -a|--all)
+          shellb_command_find_exec "/"
+          ;;
+        -c|--current)
+          shellb_command_list_exec "$@"
+          ;;
+        -r|--recursive)
+          shellb_command_find_exec "$@"
+          ;;
+        *)
+          _shellb_print_err "unknown scope \"${arg}\" passed to \"command $action\""
+          return 1
+          ;;
+      esac
       ;;
     edit)
       _shellb_print_err "unimplemented \"command $action\""
       ;;
-    editlocal)
-      _shellb_print_err "unimplemented \"command $action\""
-      ;;
     list)
-      _shellb_print_err "unimplemented \"command $action\""
-      ;;
-    listlocal)
-      _shellb_print_err "unimplemented \"command $action\""
+      local arg="$1"
+      shift
+      case "${arg}" in
+        -a|--all)
+          shellb_command_find "/"
+          ;;
+        -c|--current)
+          shellb_command_list "$@"
+          ;;
+        -r|--recursive)
+          shellb_command_find "$@"
+          ;;
+        *)
+          _shellb_print_err "unknown scope \"${arg}\" passed to \"command $action\""
+          return 1
+          ;;
+      esac
       ;;
     purge)
       _shellb_print_err "unimplemented \"command $action\""
@@ -321,10 +333,14 @@ function _shellb_command_action() {
   esac
 }
 
+function _shellb_command_list_compgen() {
+  _shellb_core_compgen "${_SHELLB_DB_COMMANDS}" "" "" ""
+}
+
 function _shellb_command_compgen() {
   _shellb_print_dbg "_shellb_command_compgen($*)"
 
-  local comp_cur comp_prev opts idx_offset
+  local comp_cur comp_prev opts idx_offset action arg
 
   idx_offset=1
   comp_cur="${COMP_WORDS[COMP_CWORD]}"
@@ -340,12 +356,112 @@ function _shellb_command_compgen() {
       opts="${_SHELLB_COMMAND_ACTIONS} help"
       ;;
     2)
-      case "${comp_prev}" in
+      action="${COMP_WORDS[2]}"
+      case "${action}" in
         help)
           opts=${_SHELLB_COMMAND_ACTIONS}
           ;;
-        new|save|del|dellocal|run|runlocal|edit|editlocal|list|listlocal|purge)
-          opts="reallySet"
+        new)
+          _shellb_command_list_compgen
+          return
+          ;;
+        save)
+          _shellb_command_list_compgen
+          return
+          ;;
+        del)
+          opts="--current --all --recursive -a -c -r"
+          ;;
+        run)
+          opts="--current --all --recursive -a -c -r"
+          ;;
+        edit)
+          opts=""
+          ;;
+        list)
+          opts="--current --all --recursive -a -c -r"
+          ;;
+        purge)
+          opts=""
+          ;;
+        *)
+          _shellb_print_wrn "unknown command \"${comp_cur}\""
+          opts=""
+          ;;
+      esac
+      ;;
+    *)
+      action="${COMP_WORDS[2]}"
+      arg="${COMP_WORDS[3]}"
+      case "${action}" in
+        help)
+          opts=${_SHELLB_COMMAND_ACTIONS}
+          ;;
+        new)
+          opts=""
+          ;;
+        save)
+          opts=""
+          ;;
+        del)
+          case "${arg}" in
+            -a|--all)
+              opts=""
+              ;;
+            -c|--current)
+              _shellb_command_list_compgen
+              return
+              ;;
+            -r|--recursive)
+              _shellb_command_list_compgen
+              return
+              ;;
+            *)
+              opts=""
+              ;;
+          esac
+          ;;
+        run)
+          case "${arg}" in
+            -a|--all)
+              opts=""
+              ;;
+            -c|--current)
+              _shellb_command_list_compgen
+              return
+              ;;
+            -r|--recursive)
+              _shellb_command_list_compgen
+              return
+              ;;
+            *)
+              opts=""
+              ;;
+          esac
+          ;;
+        edit)
+          opts=""
+          ;;
+        list)
+          case "${arg}" in
+            -a|--all)
+              opts=""
+              ;;
+            -c|--current)
+              _shellb_command_list_compgen
+              return
+              ;;
+            -r|--recursive)
+              _shellb_command_list_compgen
+              return
+              ;;
+            *)
+              opts=""
+              ;;
+          esac
+          ;;
+        purge)
+          opts=""
           ;;
         *)
           _shellb_print_wrn "unknown command \"${comp_cur}\""

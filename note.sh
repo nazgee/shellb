@@ -33,7 +33,7 @@ function shellb_notepad_edit() {
   local target proto_target selection
   selection="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
-  target=$(_shellb_core_file_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
+  target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
   mkdir -p "$(dirname "${target}")" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
@@ -48,7 +48,7 @@ function shellb_notepad_show() {
   local target proto_target selection
   selection="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
-  target=$(_shellb_core_file_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
+  target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
   [ -e "${target}" ] || _shellb_print_err "notepad edit failed, no \"${proto_target}\" notepad" || return 1
@@ -64,7 +64,7 @@ function shellb_notepad_del() {
   local target proto_target selection
   selection="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
-  target=$(_shellb_core_file_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
+  target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
   [ -f "${target}" ] || _shellb_print_err "notepad del failed, no \"${target}\" notepad" || return 1
@@ -81,7 +81,7 @@ function shellb_notepad_delall() {
   _shellb_print_nfo "all notepads deleted"
 }
 
-# Prints a menu of notepads for given directory, or returns 1 if none found or given dir is invalid
+# Prints a menu of notepads below given directory, or returns 1 if none found or given dir is invalid
 # $1 - optional directory to list notepads for (default: current dir)
 function _shellb_notepad_list_print_menu() {
   _shellb_print_dbg "_shellb_notepad_list_print_menu($*)"
@@ -89,7 +89,7 @@ function _shellb_notepad_list_print_menu() {
   user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || return 1
   # fetch all notes under given domain dir
   mapfile -t matched_notes < <(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "${user_dir}")
-  # check any bookmarks were found
+  # check if any notes were found
   [ ${#matched_notes[@]} -gt 0 ] || return 1
 
   # print note files
@@ -99,17 +99,19 @@ function _shellb_notepad_list_print_menu() {
   done
 }
 
+# Lists notes belo given directory, or returns 1 if none found or given dir is invalid
+# $1 - optional directory to list notes below (default: /, will find all notes)
 function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
 
-  local target proto_target selection
-  selection=$(realpath -qe "${1:-/}" 2>/dev/null) || _shellb_print_err "notepad list failed, \"${1}\" is not a valid dir" || return 1
-  [ -d "${selection}" ] || _shellb_print_err "notepad list failed, \"${notepad_domaindir}\" is not a dir" || return 1
-  target=$(_shellb_core_file_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
+  local target proto_target user_dir
+  user_dir=$(realpath -qe "${1:-/}" 2>/dev/null) || _shellb_print_err "notepad list failed, \"${1}\" is not a valid dir" || return 1
+  [ -d "${user_dir}" ] || _shellb_print_err "notepad list failed, \"${user_dir}\" is not a dir" || return 1
+  target=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
-  notepads_list=$(_shellb_notepad_list_print_menu "${selection}") || _shellb_print_err "notepad list failed, no notepads below \"${proto_target}\"" || return 1
-  if [ "${selection}" = "/" ]; then
+  notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads below \"${proto_target}\"" || return 1
+  if [ "${user_dir}" = "/" ]; then
     _shellb_print_nfo "all notepads in ${proto_target}"
   else
     _shellb_print_nfo "notepads below \"${proto_target}\""
@@ -119,32 +121,30 @@ function shellb_notepad_list() {
 
 function shellb_notepad_list_edit() {
   _shellb_print_dbg "shellb_notepad_list_edit($*)"
-  local list notepad target
-  target="${1:-/}"
+  local list target selection user_dir
+  user_dir="${1:-/}"
 
-  if [ -d "${target}" ]; then
-    list=$(shellb_notepad_list "${target}") || return 1
+  if [ -d "${user_dir}" ]; then
+    list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
     _shellb_print_nfo "select notepad to edit:"
-    # ask user to select a notepad, but omit the first line (header)
-    # from a list that will be parsed by _shellb_core_get_user_selection
-    target="${target}/$(_shellb_core_get_user_selection_column "$(echo "${list}" | tail -n +2)" "2")"
+    read -r selection || return 1
+    target="${user_dir}$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   fi
   shellb_notepad_edit "${target}"
 }
 
 function shellb_notepad_list_show() {
   _shellb_print_dbg "shellb_notepad_list_show($*)"
-  local list notepad target
-  target="${1:-/}"
+  local list target selection user_dir
+  user_dir="${1:-/}"
 
-  if [ -d "${target}" ]; then
-    list=$(shellb_notepad_list "${target}") || return 1
+  if [ -d "${user_dir}" ]; then
+    list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
     _shellb_print_nfo "select notepad to show:"
-    # ask user to select a notepad, but omit the first line (header)
-    # from a list that will be parsed by _shellb_core_get_user_selection
-    target="${target}/$(_shellb_core_get_user_selection_column "$(echo "${list}" | tail -n +2)" "2")"
+    read -r selection || return 1
+    target="${user_dir}$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   fi
   shellb_notepad_show "${target}"
 }
@@ -152,34 +152,17 @@ function shellb_notepad_list_show() {
 # $1 - notepad or direcotry to delete. If it's a directory, ask user to select a notepad
 function shellb_notepad_list_del() {
   _shellb_print_dbg "shellb_notepad_list_del($*)"
-  local list notepad target
-  target="${1:-/}"
+  local list target selection user_dir
+  user_dir="${1:-/}"
 
-  if [ -d "${target}" ]; then
-    list=$(shellb_notepad_list "${target}") || return 1
+  if [ -d "${user_dir}" ]; then
+    list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
     _shellb_print_nfo "select notepad to delete:"
-    # ask user to select a notepad, but omit the first line (header)
-    # from a list that will be parsed by _shellb_core_get_user_selection
-    target="${target}/$(_shellb_core_get_user_selection_column "$(echo "${list}" | tail -n +2)" "2")"
+    read -r selection || return 1
+    target="${user_dir}$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   fi
   shellb_notepad_del "${target}"
-}
-
-function _shellb_notepad_edit_compgen() {
-  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "*" "${_SHELLB_CFG_NOTE_FILE}"
-}
-
-function _shellb_notepad_delete_compgen() {
-  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "*" ""
-}
-
-function _shellb_notepad_cat_compgen() {
-  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "*" ""
-}
-
-function _shellb_notepad_list_compgen() {
-  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "" "" "/"
 }
 
 _SHELLB_NOTE_ACTIONS="edit del cat list purge"
@@ -214,6 +197,22 @@ function _shellb_note_action() {
       _shellb_print_err "unknown action \"note $action\""
       ;;
   esac
+}
+
+function _shellb_notepad_edit_compgen() {
+  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "*" "${_SHELLB_CFG_NOTE_FILE}"
+}
+
+function _shellb_notepad_delete_compgen() {
+  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "*" ""
+}
+
+function _shellb_notepad_cat_compgen() {
+  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "*" ""
+}
+
+function _shellb_notepad_list_compgen() {
+  _shellb_core_compgen "${_SHELLB_DB_NOTES}" "" "" "/"
 }
 
 function _shellb_note_compgen() {

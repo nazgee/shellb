@@ -24,7 +24,7 @@ _SHELLB_DB_BOOKMARKS="${_SHELLB_DB}/bookmarks"
 # bookmark functions
 ###############################################
 function _shellb_bookmarks_calc_absfile() {
-  _shellb_core_calc_absfile "${1}" "${_SHELLB_DB_BOOKMARKS}" "/"
+  _shellb_core_calc_domain_from_user "/${1}" "${_SHELLB_DB_BOOKMARKS}"
 }
 
 function _shellb_bookmark_glob(){
