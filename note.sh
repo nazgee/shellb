@@ -143,7 +143,7 @@ function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
   local notepads_list user_dir notepad_domaindir
 
-  user_dir="${1:-.}"
+  user_dir="${1:-/}"
   notepad_domaindir="$(_shellb_notepad_calc_domaindir "${user_dir}")"
 
   notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads below \"${notepad_domaindir}\"" || return 1
@@ -159,7 +159,7 @@ function shellb_notepad_list() {
 function shellb_notepad_list_edit() {
   _shellb_print_dbg "shellb_notepad_list_edit($*)"
   local list target user_dir
-  user_dir="${1:-.}"
+  user_dir="${1:-/}"
 
   list=$(shellb_notepad_list "${user_dir}") || return 1
   echo "${list}"
@@ -175,7 +175,7 @@ function shellb_notepad_list_edit() {
 function shellb_notepad_list_show() {
   _shellb_print_dbg "shellb_notepad_list_show($*)"
   local list target user_dir
-  user_dir="${1:-.}"
+  user_dir="${1:-/}"
 
   list=$(shellb_notepad_list "${user_dir}") || return 1
   echo "${list}"
@@ -191,7 +191,7 @@ function shellb_notepad_list_show() {
 function shellb_notepad_list_del() {
   _shellb_print_dbg "shellb_notepad_list_del($*)"
   local list target user_dir
-  user_dir="${1:-.}"
+  user_dir="${1:-/}"
 
   list=$(shellb_notepad_list "${user_dir}") || return 1
   echo "${list}"
@@ -203,9 +203,30 @@ function shellb_notepad_list_del() {
   shellb_notepad_del "${user_dir}/$(dirname "${target}")"
 }
 
+function shellb_notepad_foo() {
+  _shellb_print_nfo "foo($*)"
+}
 
 
+function _shellb_notepad_completion_opts_edit() {
+  _shellb_print_dbg "_shellb_notepad_completion_opts_edit($*)"
 
+  local comp_words comp_cword comp_cur comp_prev opts
+  comp_cword=$1
+  shift
+  comp_words=( $@ )
+  comp_cur="${comp_words[$comp_cword]}"
+  comp_prev="${comp_words[$comp_cword-1]}"
+
+  local default_note
+  if realpath -eq "${cur:-./}"; then
+    default_note="$(echo "${cur:-./}/${_SHELLB_CFG_NOTE_FILE}" | tr -s /)"
+  else
+    default_note="$(dirname "${cur:-./}")/${_SHELLB_CFG_NOTE_FILE}"
+  fi
+  opts="$(compgen -d -S '/' -- "${cur:-.}") ${default_note}"
+  echo "${opts}"
+}
 
 
 _SHELLB_NOTE_ACTIONS="edit editlocal del dellocal cat catlocal list listlocal purge"
@@ -214,6 +235,7 @@ function _shellb_note_action() {
   _shellb_print_dbg "_shellb_note_action($*)"
   local action
   action=$1
+  shift
   [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
 
   case ${action} in
@@ -221,28 +243,31 @@ function _shellb_note_action() {
       _shellb_print_err "unimplemented \"note $action\""
       ;;
     edit)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_list_edit "$@"
       ;;
     editlocal)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_edit "."
       ;;
     del)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_list_del "$@"
       ;;
     dellocal)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_del "."
       ;;
     cat)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_list_show "$@"
       ;;
     catlocal)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_show "."
+      ;;
+    foo)
+      shellb_notepad_foo "$@"
       ;;
     list)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_list "$@"
       ;;
     listlocal)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_list "."
       ;;
     purge)
       _shellb_print_err "unimplemented \"note $action\""
@@ -265,15 +290,42 @@ function _shellb_note_completion_opts() {
 
   case ${comp_cword} in
     1)
-      opts="${_SHELLB_NOTE_ACTIONS} help"
+      opts="${_SHELLB_NOTE_ACTIONS} help foo"
       ;;
     2)
       case "${comp_prev}" in
         help)
           opts=${_SHELLB_NOTE_ACTIONS}
           ;;
-        edit|editlocal|del|dellocal|cat|catlocal|list|listlocal|purge)
-          opts="SOME_OPTS"
+        edit)
+          opts="./ $(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "/")"
+          ;;
+        editlocal)
+          opts="./${_SHELLB_CFG_NOTE_FILE}"
+          ;;
+        del)
+          opts="./${_SHELLB_CFG_NOTE_FILE} $(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "/")"
+          ;;
+        dellocal)
+          opts="./${_SHELLB_CFG_NOTE_FILE}"
+          ;;
+        cat)
+          opts="./${_SHELLB_CFG_NOTE_FILE} $(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "/")"
+          ;;
+        catlocal)
+          opts="./${_SHELLB_CFG_NOTE_FILE}"
+          ;;
+        list)
+          opts="/ $(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "/" | xargs -I{} dirname {})"
+          ;;
+        listlocal)
+          opts="."
+          ;;
+        foo)
+          opts="$(_shellb_notepad_completion_opts_edit "${comp_cword}" "${comp_words[@]}")"
+          ;;
+        purge)
+          opts=". / $(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "/")"
           ;;
         *)
           _shellb_print_wrn "unknown command \"${comp_cur}\""
