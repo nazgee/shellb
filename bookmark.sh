@@ -277,7 +277,7 @@ function _shellb_bookmark_compgen() {
 
   local comp_cur comp_prev opts idx_offset
 
-  idx_offset=2
+  idx_offset=1
   comp_cur="${COMP_WORDS[COMP_CWORD]}"
   comp_prev="${COMP_WORDS[COMP_CWORD-1]}"
 

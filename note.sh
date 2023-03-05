@@ -32,9 +32,10 @@ function _shellb_notepad_calc_absdir() {
 }
 
 # ${1} - optional directory to calculate abs file for
+# ${2} - optional directory filename
 function _shellb_notepad_calc_absfile() {
   _shellb_print_dbg "_shellb_notepad_calc_absfile($*)"
-  _shellb_core_calc_absfile "${_SHELLB_CFG_NOTE_FILE}" "${_SHELLB_DB_NOTES}" "${1}"
+  _shellb_core_calc_absfile "${2:-${_SHELLB_CFG_NOTE_FILE}}" "${_SHELLB_DB_NOTES}" "${1:-.}"
 }
 
 # ${1} - optional directory to calculate notepad domain file for
@@ -208,24 +209,72 @@ function shellb_notepad_foo() {
 }
 
 
-function _shellb_notepad_completion_opts_edit() {
+function _shellb_notepad_completion_to_dir() {
+  local completion
+  completion="${1}"
+  [ -d "${completion}" ] && echo "${completion}" && return 0
+  dirname "${completion}"
+}
+
+# Generate mixture of user-directories and shellb-resources for completion
+# All user directories will be completed, but only existing shellb resource-files will be shown
+# e.g. for "../" completion:
+#    ../zzzzzz/    ../foo.md
+#    ../bar.md     ../dirb/
+# it will generate a list of user directories, as well as existing shellb resources.
+# - existing user dirs:         "../zzzzzzz/" "../dirb/"
+# - existing shellb resources:  "../bar.md"   "../foo.md"
+#
+# When non-empty $1 will be provided, non-exisiting shelb resource will be listed
+# under the directory of a currently shown completion, with a name given by $1
+# e.g. for "../" completion and $1="aaaaaaaaaa.md":
+#    ../zzzzzz/    ../foo.md     ../aaaaaaaaaa.md
+#    ../bar.md     ../dirb/
+# - existing user dirs:         "../zzzzzzz/" "../dirb/"
+# - existing shellb resources:  "../bar.md"   "../foo.md"
+# - non-existing shellb resource: "../aaaaaaaaaa.md"
+#
+# $1 - optional, name of a non-existing shellb resource
+# $2 - current completeion word, typ
+function _shellb_notepad_comgen() {
   _shellb_print_dbg "_shellb_notepad_completion_opts_edit($*)"
 
-  local comp_words comp_cword comp_cur comp_prev opts
-  comp_cword=$1
-  shift
-  comp_words=( $@ )
+  local extra_file comp_words comp_cword comp_cur comp_cur_dir comp_prev opts opts_dirs note_default note_others
+  extra_file="${1}"
+  comp_cword="${COMP_CWORD}"
+  comp_words=( ${COMP_WORDS[@]} )
   comp_cur="${comp_words[$comp_cword]}"
   comp_prev="${comp_words[$comp_cword-1]}"
 
-  local default_note
-  if realpath -eq "${cur:-./}"; then
-    default_note="$(echo "${cur:-./}/${_SHELLB_CFG_NOTE_FILE}" | tr -s /)"
-  else
-    default_note="$(dirname "${cur:-./}")/${_SHELLB_CFG_NOTE_FILE}"
+  if [ -n "${extra_file}" ]; then
+    if realpath -eq "${cur:-./}" > /dev/null ; then
+      # remove potential double slashes
+      note_default="$(echo "${cur:-./}/${extra_file}" | tr -s /)"
+    else
+      note_default="$(dirname "${cur:-./}")/${extra_file}"
+    fi
   fi
-  opts="$(compgen -d -S '/' -- "${cur:-.}") ${default_note}"
-  echo "${opts}"
+
+  # get all directories and files in direcotry of current word
+  opts_dirs=$(compgen -d -S '/' -- "${cur:-.}")
+
+  # translate current completion to a directory
+  comp_cur_dir=$(_shellb_notepad_completion_to_dir "${comp_cur}")
+
+  # check what files are in _SHELLB_DB_NOTES for current completion word
+  # and for all dir-based completions
+  for dir in ${opts_dirs} ${comp_cur_dir} ; do
+    files_in_domain_dir=$(_shellb_core_domain_files_ls "${_SHELLB_DB_NOTES}" "*" "$(realpath "${dir}")" 2>/dev/null)
+    for file_in_domain_dir in ${files_in_domain_dir} ; do
+      note_others="${note_others} $(echo "${dir}/${file_in_domain_dir}" | tr -s /)"
+    done
+  done
+
+  opts="${opts_dirs} ${note_default} ${note_others}"
+
+  # we want no space added after file/dir completion
+  compopt -o nospace
+  COMPREPLY=( $(compgen -o nospace -W "${opts}" -- ${cur}) )
 }
 
 
@@ -282,13 +331,12 @@ function _shellb_note_compgen() {
   _shellb_print_dbg "_shellb_note_compgen($*)"
 
   local comp_cur comp_prev opts idx_offset
-
-  idx_offset=2
+  idx_offset=1
   comp_cur="${COMP_WORDS[COMP_CWORD]}"
   comp_prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   _shellb_print_dbg "comp_cur: \"${comp_cur}\" COMP_CWORD: \"${COMP_CWORD}\""
-
+  shift
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
 
@@ -303,6 +351,7 @@ function _shellb_note_compgen() {
           ;;
         edit)
           opts="./ $(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "/")"
+          opts="foo bar baz"
           ;;
         editlocal)
           opts="./${_SHELLB_CFG_NOTE_FILE}"
@@ -326,7 +375,8 @@ function _shellb_note_compgen() {
           opts="."
           ;;
         foo)
-          opts="$(_shellb_notepad_completion_opts_edit "${COMP_CWORD}" "${COMP_WORDS[@]:${idx_offset}}")"
+          _shellb_notepad_comgen "${_SHELLB_CFG_NOTE_FILE}"
+          return
           ;;
         purge)
           opts=". / $(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "/")"
@@ -339,5 +389,6 @@ function _shellb_note_compgen() {
       ;;
   esac
 
+  compopt +o nospace
   COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 }

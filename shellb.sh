@@ -659,6 +659,46 @@ function _shellb_completions() {
   return 0
 }
 
+function sho() {
+  _shellb_print_dbg "sho($*)"
+  _shellb_module_action "$@"
+}
+
+function _sho() {
+  _shellb_print_dbg "_sho($*)"
+  local opts cur
+  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+  # reset COMPREPLY, as it's global and may have been set in previous invocation
+  COMPREPLY=()
+
+  # by default: add space after completion. every module can override this
+  compopt +o nospace
+
+  case ${COMP_CWORD} in
+    1)
+#      local quoted_modules_array=("${_SHELLB_MODULES[@]/#/\'PPP }")
+#      quoted_modules_array=("${quoted_modules_array[@]/%/ SSS\'}")
+#      opts="${quoted_modules_array[*]}"
+      opts="${_SHELLB_MODULES[*]}"
+#       opts="\"fooo \" \"bar \" \"baz \""
+#       opts="'fooo ' 'bar ' 'baz '"
+#       opts='"fooo " "bar " "baz "'
+      ;;
+    *)
+      _shellb_print_dbg "_sho() asking module"
+      _shellb_module_compgen "${COMP_WORDS[1]}"
+      return 0
+      ;;
+  esac
+
+  _shellb_print_dbg "_sho() global: ${opts}"
+  # if cur is empty, we're completing bookmark name
+  #printf 'pre_%q_suf'  "${opts[@]}"
+
+  COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+  return 0
+}
+
 ###############################################
 # shortcuts
 # (these are just aliases to the core functions)
@@ -736,6 +776,7 @@ function shellb_completions_install() {
 
   complete -F _shellb_completions                     "${shellb_func}"
   complete -F _shellb_completions                     shellb
+  complete -F _sho                         sho
 }
 
 # install completions when we're sourced

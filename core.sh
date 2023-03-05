@@ -43,7 +43,7 @@ function _shellb_print_err() {
 }
 
 function _shellb_core_domain_files_ls() {
-  _shellb_print_dbg "_shellb_core_domain_files_list($*)"
+  _shellb_print_err "_shellb_core_domain_files_list($*)"
   local domain_dir user_dir file_glob
   domain_dir="${1}"
   file_glob="${2}"
