@@ -321,17 +321,21 @@ function _shellb_command_action() {
   esac
 }
 
-function _shellb_command_completion_opts() {
-  _shellb_print_dbg "_shellb_command_completion_opts($*)"
+function _shellb_command_compgen() {
+  _shellb_print_dbg "_shellb_command_compgen($*)"
 
-  local comp_words comp_cword comp_cur comp_prev opts
-  comp_cword=$1
-  shift
-  comp_words=( $@ )
-  comp_cur="${comp_words[$comp_cword]}"
-  comp_prev="${comp_words[$comp_cword-1]}"
+  local comp_cur comp_prev opts idx_offset
 
-  case ${comp_cword} in
+  idx_offset=2
+  comp_cur="${COMP_WORDS[COMP_CWORD]}"
+  comp_prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  _shellb_print_dbg "comp_cur: \"${comp_cur}\" COMP_CWORD: \"${COMP_CWORD}\""
+
+  # reset COMPREPLY, as it's global and may have been set in previous invocation
+  COMPREPLY=()
+
+  case $((COMP_CWORD-idx_offset)) in
     1)
       opts="${_SHELLB_COMMAND_ACTIONS} help"
       ;;
@@ -351,5 +355,5 @@ function _shellb_command_completion_opts() {
       ;;
   esac
 
-  echo "${opts}"
+  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 }

@@ -593,9 +593,9 @@ function _shellb_module_invoke() {
   eval "_shellb_${module_name}_${function_name} $*"
 }
 
-function _shellb_module_completion_opts() {
-  _shellb_print_dbg "_shellb_module_completion_opts($*)"
-  _shellb_module_invoke "completion_opts" "$@"
+function _shellb_module_compgen() {
+  _shellb_print_dbg "_shellb_module_compgen($*)"
+  _shellb_module_invoke "compgen" "$@"
 }
 
 function _shellb_module_action() {
@@ -647,11 +647,8 @@ function _shellb_completions() {
           opts="$(_shellb_command_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
           ;;
         module)
-          local module comp_words comp_cword
-          module="${COMP_WORDS[2]}"
-          comp_cword=$(expr $COMP_CWORD - 2)
-          comp_words=( ${COMP_WORDS[@]:2} )
-          opts="$(_shellb_module_completion_opts "${module}" "${comp_cword}" "${comp_words[@]}")"
+          _shellb_module_compgen "${COMP_WORDS[2]}"
+          return 0
           ;;
       esac
       ;;
