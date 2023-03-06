@@ -10,8 +10,6 @@ if [ $sourced -eq 0 ]; then
   exit 1
 fi
 
-echo "bookmark extension loading..."
-
 if [[ -n "${SHELB_DEVEL_DIR}" ]]; then
   # shellcheck source=core.sh
   source core.sh

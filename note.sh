@@ -11,9 +11,6 @@ if [ $sourced -eq 0 ]; then
   exit 1
 fi
 
-echo "note extension loading..."
-
-
 if [[ -n "${SHELB_DEVEL_DIR}" ]]; then
   # shellcheck source=core.sh
   source core.sh
@@ -37,7 +34,7 @@ function shellb_notepad_edit() {
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
   mkdir -p "$(dirname "${target}")" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
-  "${shellb_cfg_notepad_editor}" "${target}"
+  eval "${shellb_notepad_editor}" "${target}"
   _shellb_print_nfo "\"${proto_target}\" notepad edited"
 }
 

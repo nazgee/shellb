@@ -10,8 +10,6 @@ if [ $sourced -eq 0 ]; then
  exit 1
 fi
 
-echo "core loading..."
-
 _SHELLB_DB="$(realpath -q ~/.shellB)"
 _SHELLB_COLUMN_SEPARATOR=" | "
 
