@@ -53,7 +53,6 @@ function shellb_notepad_show() {
 
   [ -e "${target}" ] || _shellb_print_err "notepad cat failed, no \"${proto_target}\" notepad" || return 1
   [ -s "${target}" ] || _shellb_print_err "notepad cat failed, \"${proto_target}\" is empty" || return 1
-  _shellb_print_wrn "---- ${proto_target} ----"
   cat "${target}"
 }
 
@@ -134,6 +133,8 @@ function shellb_notepad_list_edit() {
       selection=1
     fi
     target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
+  else
+    target="${user_dir}"
   fi
   shellb_notepad_edit "${target}"
 }
@@ -141,7 +142,7 @@ function shellb_notepad_list_edit() {
 function shellb_notepad_list_show() {
   _shellb_print_dbg "shellb_notepad_list_show($*)"
   local list target selection user_dir
-  user_dir=$(realpath -qe "${1:-/}" 2>/dev/null) || return 1
+  user_dir=$(realpath -qm "${1:-/}" 2>/dev/null) || return 1
 
   if [ -d "${user_dir}" ]; then
     list=$(shellb_notepad_list "${user_dir}") || return 1
@@ -149,6 +150,8 @@ function shellb_notepad_list_show() {
     _shellb_print_nfo "select notepad to show:"
     read -r selection || return 1
     target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
+  else
+    target="${user_dir}"
   fi
   shellb_notepad_show "${target}"
 }
@@ -165,6 +168,8 @@ function shellb_notepad_list_del() {
     _shellb_print_nfo "select notepad to delete:"
     read -r selection || return 1
     target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
+  else
+    target="${user_dir}"
   fi
   shellb_notepad_del "${target}"
 }
