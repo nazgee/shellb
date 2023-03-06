@@ -123,8 +123,9 @@ function _shellb_aliases_compgen() {
 }
 
 function _shellb_aliases_action() {
+  _shellb_print_nfo "list of aliases defined in ${_SHELLB_RC}"
   for alias in ${_SHELLB_ALIASES}; do
-    type "${alias}"
+    _shellb_print_nfo "   $(type "${alias}")"
   done
 }
 
