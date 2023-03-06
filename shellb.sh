@@ -128,576 +128,6 @@ done < "${_SHELLB_RC}"
   || echo "${_SHELLB_CFG_RC_DEFAULT}" > "${_SHELLB_RC}"
 
 ###############################################
-# bookmark completion functions
-###############################################
-function _shellb_bookmark_completions() {
-  local cur prev opts
-
-  # reset COMPREPLY, as it's global and may have been set in previous invocation
-  COMPREPLY=()
-  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
-  prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-  opts="$(_shellb_bookmarks_row "")" # fetch full list of bookmarks, compgen will filter it
-
-  # if cur is empty, we're completing bookmark name
-  COMPREPLY=( $(compgen -W "${opts}" -- ${cur} ))
-  return 0
-}
-
-
-###############################################
-# notepad completion functions
-###############################################
-#$1: comp_word
-#$2: comp_cur
-#$3: comp_prev
-#$4: (comp_words)
-function _shellb_notepad_list_opts() {
-    local cur prev comp_word comp_words opts notepads
-
-    comp_word="${1}"
-    shift
-    cur="${1}"
-    shift
-    prev="${1}"
-    shift
-    comp_words=("$@")
-    cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete name or null
-    prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-
-    notepads="$(_shellb_notepad_list_column "/")"
-    for notepad in ${notepads}; do
-      opts="${opts} $(realpath --relative-to "$(pwd)" "$(dirname "/${notepad}")") $(dirname "/${notepad}")"
-    done
-
-    echo "${opts}"
-}
-
-function _shellb_notepad_completions() {
-  local opts
-  # reset COMPREPLY, as it's global and may have been set in previous invocation
-  COMPREPLY=()
-  opts="$(_shellb_notepad_list_opts "${COMP_CWORD}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}" "${COMP_WORDS[@]}")"
-  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-  return 0
-}
-
-#$1: comp_word
-#$2: comp_cur
-#$3: comp_prev
-#$4: (comp_words)
-function _shellb_notepad_find_opts() {
-    local cur prev comp_word comp_words opts notepads
-
-    comp_word="${1}"
-    shift
-    cur="${1}"
-    shift
-    prev="${1}"
-    shift
-    comp_words=("$@")
-    cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete name or null
-    prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-
-    notepads="$(_shellb_notepad_list_column "/")"
-    for notepad in ${notepads}; do
-      opts="${opts} $(realpath --relative-to "$(pwd)" "$(dirname "/${notepad}")") $(dirname "/${notepad}")"
-    done
-
-    echo "${opts} /" # FIXME this is the only difference from _shellb_notepad_list_opts
-}
-
-function _shellb_notepad_completions_all() {
-  local opts
-  # reset COMPREPLY, as it's global and may have been set in previous invocation
-  COMPREPLY=()
-  opts="$(_shellb_notepad_find_opts "${COMP_CWORD}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}" "${COMP_WORDS[@]}")"
-  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-  return 0
-}
-
-
-############################################
-# command completions
-############################################
-#$1: comp_word
-#$2: comp_cur
-#$3: comp_prev
-#$4: (comp_words)
-function _shellb_command_list_opts() {
-    local cur prev comp_word comp_words opts commands
-
-    comp_word="${1}"
-    shift
-    cur="${1}"
-    shift
-    prev="${1}"
-    shift
-    comp_words=("$@")
-    cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
-    prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-
-    commands="$(_shellb_command_list_column "/")"
-    for command in ${commands}; do
-      commands_dirs="${commands_dirs} $(dirname "/${command}")"
-    done
-
-    for command in ${commands_dirs}; do
-      opts="${opts} $(realpath --relative-to "$(pwd)" "$(dirname "${command}")") $(dirname "${command}")"
-    done
-
-    echo "${opts}"
-}
-
-function _shellb_command_completions() {
-  local opts
-  # reset COMPREPLY, as it's global and may have been set in previous invocation
-  COMPREPLY=()
-  opts="$(_shellb_command_list_opts "${COMP_CWORD}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}" "${COMP_WORDS[@]}")"
-  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-  return 0
-}
-
-#$1: comp_word
-#$2: comp_cur
-#$3: comp_prev
-#$4: (comp_words)
-function _shellb_command_find_opts() {
-    local cur prev comp_word comp_words opts commands
-
-    comp_word="${1}"
-    shift
-    cur="${1}"
-    shift
-    prev="${1}"
-    shift
-    comp_words=("$@")
-    cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
-    prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word, we're not interested, but it's here for reference
-
-    commands="$(_shellb_command_find_column "/")"
-    for command in ${commands}; do
-      commands_dirs="${commands_dirs} $(dirname "/${command}")"
-    done
-
-    for command in ${commands_dirs}; do
-      opts="${opts} $(realpath --relative-to "$(pwd)" "$(dirname "${command}")") $(dirname "${command}")"
-    done
-
-    echo "${opts} /"
-}
-
-function _shellb_command_completions_all() {
-local opts
-  # reset COMPREPLY, as it's global and may have been set in previous invocation
-  COMPREPLY=()
-  opts="$(_shellb_command_find_opts "${COMP_CWORD}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}" "${COMP_WORDS[@]}")"
-  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-  return 0
-}
-###############################################
-# core functions
-###############################################
-# TODO implement
-function shellb() {
-  case ${1} in
-    "bookmark")
-      shift
-      shellb_bookmark "$@"
-      ;;
-    "command")
-      shift
-      shellb_command "$@"
-      ;;
-    "notepad")
-      shift
-      (shellb_notepad "$@")
-      ;;
-    "help")
-      shift
-      shellb_help "$@"
-      ;;
-    "reload-config")
-      shift
-      source "${_SHELLB_SOURCE_LOCATION}"
-      _shellb_print_nfo "loaded (${_SHELLB_SOURCE_LOCATION} + ${_SHELLB_RC})"
-      ;;
-    "module")
-      shift
-      _shellb_module_action "$@"
-      ;;
-    *)
-      _shellb_print_err "unknown command: ${1}"
-      ;;
-  esac
-}
-
-function shellb_help() {
-  _shellb_print_wrn_fail "not implemented yet ($*)"
-}
-
-function shellb_bookmark() {
-  case ${1} in
-    "set")
-      shift
-      (shellb_bookmark_set "$@")
-      ;;
-    "go")
-      shift
-      shellb_bookmark_goto "$@"
-      ;;
-    "get")
-      shift
-      (shellb_bookmark_get_long "$@")
-      ;;
-    "del")
-      shift
-      (shellb_bookmark_del "$@")
-      ;;
-    "list")
-      shift
-      (shellb_bookmark_list_long "$@")
-      ;;
-    *)
-      _shellb_print_err "unknown command: ${1}"
-      ;;
-  esac
-}
-
-function shellb_notepad() {
-  case ${1} in
-    "edit")
-      shift
-      shellb_notepad_edit "$@"
-      ;;
-    "editlocal")
-      shift
-      shellb_notepad_edit "."
-      ;;
-    "show")
-      shift
-      shellb_notepad_list_show "/"
-      ;;
-    "showlocal")
-      shift
-      shellb_notepad_show "."
-      ;;
-    "showall")
-      shift
-      shellb_notepad_show_recurse "/"
-      ;;
-    "del")
-      shift
-      shellb_notepad_del "$@"
-      ;;
-    "dellocal")
-      shift
-      shellb_notepad_del "."
-      ;;
-    "delall")
-      shift
-      shellb_notepad_delall "$@"
-      ;;
-    "list")
-      shift
-      shellb_notepad_list "$@"
-      ;;
-    "listlocal")
-      shift
-      shellb_notepad_list "."
-      ;;
-    "listall")
-      shift
-      shellb_notepad_list "/"
-      ;;
-    *)
-      _shellb_print_err "unknown command: ${1}"
-      ;;
-  esac
-}
-
-#"edit-local edit show-local show-all show del-local del-local del-all del list list-local list-all"
-
-function shellb_command() {
-  case ${1} in
-    "saveinteractive")
-      shift
-      shellb_command_save_interactive "$@"
-      ;;
-    "saveprevious")
-      shift
-      shellb_command_save_previous "$@"
-      ;;
-    "execlocal")
-      shift
-      shellb_command_list_exec "."
-      ;;
-    "execglobal")
-      shift
-      shellb_command_find_exec "/"
-      ;;
-    "dellocal")
-      shift
-      shellb_command_list_del "."
-      ;;
-    "delglobal")
-      shift
-      shellb_command_find_del "/"
-      ;;
-    "listglobal")
-      shift
-      shellb_command_find "/"
-      ;;
-    "listlocal")
-      shift
-      shellb_command_list "."
-      ;;
-    "list")
-      shift
-      shellb_command_list "$@"
-      ;;
-    *)
-      _shellb_print_err "unknown command: ${1}"
-      ;;
-  esac
-}
-
-#$1: comp_word
-#$2: comp_cur
-#$3: comp_prev
-#$4: (comp_words)
-function _shellb_bookmark_opts() {
-  #_shellb_print_dbg "_shellb_bookmark_opts($*)"
-  local opts comp_words comp_word comp_cur comp_prev
-  local modifier_bookmarks="set go get del list"
-  comp_word="${1}"
-  shift
-  comp_cur="${1}"
-  shift
-  comp_prev="${1}"
-  shift
-  comp_words=("$@")
-  case ${comp_word} in
-    1)
-      _shellb_print_err "this should not happen"
-      ;;
-    2)
-      opts="${modifier_bookmarks}"
-      ;;
-    3)
-      case "${comp_words[2]}" in
-        *)
-                opts="$(_shellb_bookmarks_row)"
-                ;;
-      esac
-      ;;
-  esac
-
-  echo "${opts}"
-}
-
-#$1: comp_word
-#$2: comp_cur
-#$3: comp_prev
-#$4: (comp_words)
-function _shellb_notepad_opts() {
-  #_shellb_print_dbg "_shellb_notepad_opts($*)"
-  local opts comp_words comp_word comp_cur comp_prev
-  local modifier_notepads="editlocal edit showlocal showall show dellocal dellocal delall del list listlocal listall"
-  comp_word="${1}"
-  shift
-  comp_cur="${1}"
-  shift
-  comp_prev="${1}"
-  shift
-  comp_words=("$@")
-  case ${comp_word} in
-    1)
-      _shellb_print_err "this should not happen"
-      ;;
-    2)
-      opts="${modifier_notepads}"
-      ;;
-    3)
-      case "${comp_words[2]}" in
-        *-global)
-                opts="$(_shellb_notepad_find_opts "${comp_word}" "${cur}")"
-                ;;
-        *-local)
-                opts="."
-                ;;
-        *-all)
-                opts="/"
-                ;;
-        *)
-                opts="$(_shellb_notepad_list_opts "${comp_word}" "${cur}")"
-                ;;
-      esac
-      ;;
-  esac
-
-  echo "${opts}"
-}
-
-#$1: comp_word
-#$2: comp_cur
-#$3: comp_prev
-#$4: (comp_words)
-function _shellb_command_opts() {
-  #_shellb_print_dbg "_shellb_command_opts($*)"
-  local opts comp_words comp_word comp_cur comp_prev
-  local modifier_commands="saveprevious saveinteractive execlocal execglobal dellocal delglobal listlocal listglobal list"
-  comp_word="${1}"
-  shift
-  comp_cur="${1}"
-  shift
-  comp_prev="${1}"
-  shift
-  comp_words=("$@")
-  case ${comp_word} in
-    1)
-      _shellb_print_err "this should not happen"
-      ;;
-    2)
-      opts="${modifier_commands}"
-      ;;
-    3)
-      case "${comp_words[2]}" in
-        list)
-          opts="$(_shellb_command_list_opts "${comp_word}" "${cur}" "${prev}" "${comp_words[@]}")"
-          ;;
-        find) # FIXME not used
-          opts="$(_shellb_command_find_opts "${comp_word}" "${cur}" "${prev}" "${comp_words[@]}")"
-          ;;
-        *)
-          opts=""
-          ;;
-      esac
-      ;;
-  esac
-
-  echo "${opts}"
-}
-
-function _shellb_module_invoke() {
-  local function_name module_name
-  _shellb_print_dbg "_shellb_module_invoke($*)"
-
-  function_name=$1
-  shift
-  module_name=$1
-  shift
-
-  eval "_shellb_${module_name}_${function_name} $*"
-}
-
-function _shellb_module_compgen() {
-  _shellb_print_dbg "_shellb_module_compgen($*)"
-  _shellb_module_invoke "compgen" "$@"
-}
-
-function _shellb_module_action() {
-  _shellb_print_dbg "_shellb_module_action($*)"
-  _shellb_module_invoke "action" "$@"
-}
-
-function _shellb_completions() {
-  local cur prev opts notepads_column
-  local modifiers="bookmark command notepad help reload-config module"
-
-  # reset COMPREPLY, as it's global and may have been set in previous invocation
-  COMPREPLY=()
-  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
-  prev="${COMP_WORDS[COMP_CWORD-1]}" # previous complete word
-
-  case ${COMP_CWORD} in
-    1)
-      opts="${modifiers}"
-      ;;
-    2)
-      case "${COMP_WORDS[1]}" in
-        bookmark)
-          opts="$(_shellb_bookmark_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
-          ;;
-        notepad)
-          opts="$(_shellb_notepad_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
-          ;;
-        command)
-          opts="$(_shellb_command_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
-          ;;
-        module)
-          # convert modules array to space delimeted options string
-          opts="${_SHELLB_MODULES[*]}"
-          ;;
-        *)
-          ;;
-        esac
-        ;;
-    *)
-      case "${COMP_WORDS[1]}" in
-        bookmark)
-          opts="$(_shellb_bookmark_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
-          ;;
-        notepad)
-          opts="$(_shellb_notepad_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
-          ;;
-        command)
-          opts="$(_shellb_command_opts "${COMP_CWORD}" "${cur}" "${prev}" "${COMP_WORDS[@]}")"
-          ;;
-        module)
-          _shellb_module_compgen "${COMP_WORDS[2]}"
-          return 0
-          ;;
-      esac
-      ;;
-  esac
-
-  # if cur is empty, we're completing bookmark name
-  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-  return 0
-}
-
-function sho() {
-  _shellb_print_dbg "sho($*)"
-  _shellb_module_action "$@"
-}
-
-function _sho() {
-  _shellb_print_dbg "_sho($*)"
-  local opts cur
-  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
-  # reset COMPREPLY, as it's global and may have been set in previous invocation
-  COMPREPLY=()
-
-  # by default: add space after completion. every module can override this
-  compopt +o nospace
-
-  case ${COMP_CWORD} in
-    1)
-#      local quoted_modules_array=("${_SHELLB_MODULES[@]/#/\'PPP }")
-#      quoted_modules_array=("${quoted_modules_array[@]/%/ SSS\'}")
-#      opts="${quoted_modules_array[*]}"
-      opts="${_SHELLB_MODULES[*]}"
-#       opts="\"fooo \" \"bar \" \"baz \""
-#       opts="'fooo ' 'bar ' 'baz '"
-#       opts='"fooo " "bar " "baz "'
-      ;;
-    *)
-      _shellb_print_dbg "_sho() asking module"
-      _shellb_module_compgen "${COMP_WORDS[1]}"
-      return 0
-      ;;
-  esac
-
-  _shellb_print_dbg "_sho() global: ${opts}"
-  # if cur is empty, we're completing bookmark name
-  #printf 'pre_%q_suf'  "${opts[@]}"
-
-  COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-  return 0
-}
-
-###############################################
 # shortcuts
 # (these are just aliases to the core functions)
 ###############################################
@@ -746,10 +176,89 @@ eval "function ${shellb_func_command_find_del}()         { (shellb_command_find_
 eval "function ${shellb_func}()                          { shellb                           \"\$@\"; }" # no subshell, we MAY need side effects
 
 ###############################################
+# core functions
+###############################################
+
+function _shellb_module_invoke() {
+  local function_name module_name
+  _shellb_print_dbg "_shellb_module_invoke($*)"
+
+  function_name=$1
+  shift
+  module_name=$1
+  shift
+
+  eval "_shellb_${module_name}_${function_name} $*"
+}
+
+function _shellb_module_compgen() {
+  _shellb_print_dbg "_shellb_module_compgen($*)"
+  _shellb_module_invoke "compgen" "$@"
+}
+
+function _shellb_module_action() {
+  _shellb_print_dbg "_shellb_module_action($*)"
+  _shellb_module_invoke "action" "$@"
+}
+
+function _shellb_help_compgen() {
+  _shellb_print_err "help compgen not implemented yet"
+}
+
+function _shellb_help_action() {
+  _shellb_print_err "help action implemented yet"
+}
+
+function _shellb_reload-config_compgen() {
+  :
+}
+
+function _shellb_reload-config_action() {
+  source "${_SHELLB_SOURCE_LOCATION}"
+  _shellb_print_nfo "loaded (${_SHELLB_SOURCE_LOCATION} + ${_SHELLB_RC})"
+}
+
+function shellb() {
+  _shellb_print_dbg "shellb($*)"
+  _shellb_module_action "$@"
+}
+
+function _shellb() {
+  _shellb_print_dbg "_shellb($*)"
+  local opts cur
+  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+  # reset COMPREPLY, as it's global and may have been set in previous invocation
+  COMPREPLY=()
+
+  # by default: add space after completion. every module can override this
+  compopt +o nospace
+
+  case ${COMP_CWORD} in
+    1)
+      opts="${_SHELLB_MODULES[*]} help reload-config"
+      ;;
+    *)
+      _shellb_print_dbg "calling module compgen"
+      _shellb_module_compgen "${COMP_WORDS[1]}"
+      return 0
+      ;;
+  esac
+
+  _shellb_print_dbg "_shellb() opts=${opts}"
+  # if cur is empty, we're completing bookmark name
+  #printf 'pre_%q_suf'  "${opts[@]}"
+
+  COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+  return 0
+}
+
+###############################################
 # completions for shortcuts
 # (shortcuts prefixed with _)
 ###############################################
 function shellb_completions_install() {
+  # TODO fixit
+
   # bookmarks
   complete -o nospace -F _shellb_bookmark_completions "${shellb_func_bookmark_set}"
   complete -F _shellb_bookmark_completions            "${shellb_func_bookmark_del}"
@@ -772,14 +281,12 @@ function shellb_completions_install() {
   complete -F _shellb_command_completions_all         "${shellb_func_command_find_exec}"
   complete -F _shellb_command_completions_all         "${shellb_func_command_find_del}"
 
-  complete -F _shellb_completions                     "${shellb_func}"
-  complete -F _shellb_completions                     shellb
-  complete -F _sho                         sho
+  complete -F _shellb                                 "${shellb_func}"
+  complete -F _shellb                                   shellb
 }
 
 # install completions when we're sourced
 shellb_completions_install
-
 
 if [[ -n "${SHELB_DEVEL_DIR}" ]]; then
   # shellcheck source=core.sh

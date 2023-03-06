@@ -45,20 +45,12 @@ function _shellb_bookmark_is_alive() {
   [ -d "$(_shellb_bookmark_get "${1}")" ]
 }
 
-function _shellb_bookmark_print_long_alive() {
-  printf "${_SHELLB_CFG_SYMBOL_CHECK} | %-18s | %s\n" "${1}" "${2}"
-}
-
-function _shellb_bookmark_print_long_dangling() {
-  printf "${_SHELLB_CFG_SYMBOL_CROSS} | %-18s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
-}
-
 function _shellb_bookmark_print_long() {
   # check if target is "alive" or "dangling"
   if _shellb_bookmark_is_alive "$1"; then
-    _shellb_bookmark_print_long_alive "${1}" "${2}"
+    printf "${_SHELLB_CFG_SYMBOL_CHECK} | %-18s | %s\n" "${1}" "${2}"
   else
-    _shellb_bookmark_print_long_dangling "${1}" "${2}"
+    printf "${_SHELLB_CFG_SYMBOL_CROSS} | %-18s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
   fi
 }
 
@@ -275,22 +267,19 @@ function _shellb_bookmark_action() {
 function _shellb_bookmark_compgen() {
   _shellb_print_dbg "_shellb_bookmark_compgen($*)"
 
-  local comp_cur comp_prev opts idx_offset
-
-  idx_offset=1
+  local comp_cur comp_prev opts
   comp_cur="${COMP_WORDS[COMP_CWORD]}"
   comp_prev="${COMP_WORDS[COMP_CWORD-1]}"
-
   _shellb_print_dbg "comp_cur: \"${comp_cur}\" COMP_CWORD: \"${COMP_CWORD}\""
 
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
 
-  case $((COMP_CWORD-idx_offset)) in
-    1)
+  case $((COMP_CWORD)) in
+    2)
       opts="${_SHELLB_BOOKMARK_ACTIONS} help"
       ;;
-    2)
+    3)
       case "${comp_prev}" in
         help)
           opts=${_SHELLB_BOOKMARK_ACTIONS}

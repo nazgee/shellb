@@ -175,6 +175,13 @@ function _shellb_core_is_same_as_file() {
   fi
 }
 
+function _shellb_core_completion_to_dir() {
+  local completion
+  completion="${1}"
+  [ -d "${completion}" ] && echo "${completion}" && return 0
+  dirname "${completion}"
+}
+
 # Generate mixture of user-directories and shellb-resources for completion
 # All user directories will be completed, but only existing shellb resource-files will be shown
 # e.g. for "../" completion:
@@ -227,7 +234,7 @@ function _shellb_core_compgen() {
   if [ -n "${resource_glob}" ]; then
     local comp_cur_dir
     # translate current completion to a directory
-    comp_cur_dir=$(_shellb_notepad_completion_to_dir "${comp_cur}")
+    comp_cur_dir=$(_shellb_core_completion_to_dir "${comp_cur}")
 
     # check what files are in _SHELLB_DB_NOTES for current completion word
     # and for all dir-based completions

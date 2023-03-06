@@ -31,7 +31,7 @@ function shellb_notepad_edit() {
   _shellb_print_dbg "shellb_notepad_edit($*)"
 
   local target proto_target selection
-  selection="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
+  selection="$(realpath -mq "${1:-./${_SHELLB_CFG_NOTE_FILE}}" 2>/dev/null)"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
   target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
@@ -46,13 +46,13 @@ function shellb_notepad_show() {
   local user_dir notepad_absfile notepad_domainfile
 
   local target proto_target selection
-  selection="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
+  selection="$(realpath -mq "${1:-./${_SHELLB_CFG_NOTE_FILE}}" 2>/dev/null)"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
   target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
-  [ -e "${target}" ] || _shellb_print_err "notepad edit failed, no \"${proto_target}\" notepad" || return 1
-  [ -s "${target}" ] || _shellb_print_err "notepad edit failed, \"${proto_target}\" ie empty" || return 1
+  [ -e "${target}" ] || _shellb_print_err "notepad cat failed, no \"${proto_target}\" notepad" || return 1
+  [ -s "${target}" ] || _shellb_print_err "notepad cat failed, \"${proto_target}\" is empty" || return 1
   _shellb_print_wrn "---- ${proto_target} ----"
   cat "${target}"
 }
@@ -62,7 +62,7 @@ function shellb_notepad_del() {
   _shellb_print_dbg "shellb_notepad_del($*)"
 
   local target proto_target selection
-  selection="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
+  selection="$(realpath -mq "${1:-./${_SHELLB_CFG_NOTE_FILE}}" 2>/dev/null)"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
   target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
@@ -127,9 +127,13 @@ function shellb_notepad_list_edit() {
   if [ -d "${user_dir}" ]; then
     list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
-    _shellb_print_nfo "select notepad to edit:"
-    read -r selection || return 1
-    target="${user_dir}$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
+    if [ "$(echo "${list}" | wc -l)" -gt 2 ]; then
+      _shellb_print_nfo "select notepad to edit:"
+      read -r selection || return 1
+    else
+      selection=1
+    fi
+    target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   fi
   shellb_notepad_edit "${target}"
 }
@@ -137,14 +141,14 @@ function shellb_notepad_list_edit() {
 function shellb_notepad_list_show() {
   _shellb_print_dbg "shellb_notepad_list_show($*)"
   local list target selection user_dir
-  user_dir="${1:-/}"
+  user_dir=$(realpath -qe "${1:-/}" 2>/dev/null) || return 1
 
   if [ -d "${user_dir}" ]; then
     list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
     _shellb_print_nfo "select notepad to show:"
     read -r selection || return 1
-    target="${user_dir}$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
+    target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   fi
   shellb_notepad_show "${target}"
 }
@@ -160,7 +164,7 @@ function shellb_notepad_list_del() {
     echo "${list}"
     _shellb_print_nfo "select notepad to delete:"
     read -r selection || return 1
-    target="${user_dir}$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
+    target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   fi
   shellb_notepad_del "${target}"
 }
@@ -218,8 +222,7 @@ function _shellb_notepad_list_compgen() {
 function _shellb_note_compgen() {
   _shellb_print_dbg "_shellb_note_compgen($*)"
 
-  local comp_cur comp_prev opts idx_offset
-  idx_offset=1
+  local comp_cur comp_prev opts
   comp_cur="${COMP_WORDS[COMP_CWORD]}"
   comp_prev="${COMP_WORDS[COMP_CWORD-1]}"
 
@@ -228,11 +231,11 @@ function _shellb_note_compgen() {
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
 
-  case $((COMP_CWORD-idx_offset)) in
-    1)
+  case $((COMP_CWORD)) in
+    2)
       opts="${_SHELLB_NOTE_ACTIONS} help"
       ;;
-    2)
+    3)
       case "${comp_prev}" in
         help)
           opts=${_SHELLB_NOTE_ACTIONS}
@@ -254,7 +257,7 @@ function _shellb_note_compgen() {
           return
           ;;
         purge)
-          opts=""
+          opts="aaaaaaaaaa"
           ;;
         *)
           _shellb_print_wrn "unknown command \"${comp_cur}\""

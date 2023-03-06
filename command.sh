@@ -31,7 +31,7 @@ function _shellb_command_generate_filename() {
   echo "${cmd_file}.${_SHELLB_CFG_COMMAND_EXT}"
 }
 
-# List command files matching given command
+# List command files matching given command in given dir
 # $1 - command to match
 # $2 - user dir to search for already installed commands
 function _shellb_command_list_matching() {
@@ -40,6 +40,22 @@ function _shellb_command_list_matching() {
   user_dir="${2}"
 
   mapfile -t available_cmd_files < <(_shellb_core_domain_files_ls "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
+  for cmd_file in "${available_cmd_files[@]}"; do
+    if _shellb_core_is_same_as_file "${target}" "${domain_dir}/${cmd_file}"; then
+      echo "${domain_dir}/${cmd_file}"
+    fi
+  done
+}
+
+# List command files matching given command under given dir
+# $1 - command to match
+# $2 - user dir to search for already installed commands
+function _shellb_command_find_matching() {
+  local target user_dir available_cmd_files
+  target="${1}"
+  user_dir="${2}"
+
+  mapfile -t available_cmd_files < <(_shellb_core_domain_files_find "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
   for cmd_file in "${available_cmd_files[@]}"; do
     if _shellb_core_is_same_as_file "${target}" "${domain_dir}/${cmd_file}"; then
       echo "${domain_dir}/${cmd_file}"
@@ -119,7 +135,7 @@ function shellb_command_list() {
   _shellb_print_nfo "commands in ${domain_dir_proto}"
   for command_file in "${matched_commands[@]}"; do
     i=$((i+1))
-    printf "%3s) | %s | %s\n" "${i}" "${command_file}" "$(cat "${domain_dir_abs}/${command_file}")"
+    printf "%3s) | %s | %s\n" "${i}" "$(basename "${command_file}")" "$(cat "${domain_dir_abs}/${command_file}")"
   done
 }
 
@@ -190,7 +206,7 @@ function shellb_command_find() {
   _shellb_print_nfo "commands below ${domain_dir_proto}"
   for command_file in "${matched_commands[@]}"; do
     i=$((i+1))
-    printf "%3s) | %s | %s\n" "${i}" "${command_file}" "$(cat "${domain_dir_abs}/${command_file}")"
+    printf "%3s) | %s | %s\n" "${i}" "$(basename "${command_file}")" "$(cat "${domain_dir_abs}/${command_file}")"
   done
 }
 
@@ -219,14 +235,14 @@ function shellb_command_find_del() {
   user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
   domain_dir=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
 
-  list=$(shellb_command_find_exec "${user_dir}") || return 1
+  list=$(shellb_command_find "${user_dir}") || return 1
   echo "${list}"
   _shellb_print_nfo "select command to delete:"
 
   read -r selection || return 1
   target="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
 
-  mapfile -t matching_cmd_files < <(_shellb_command_list_matching "${target}" "${user_dir}")
+  mapfile -t matching_cmd_files < <(_shellb_command_find_matching "${target}" "${user_dir}")
   for cmd_file in "${matching_cmd_files[@]}"; do
     rm "${cmd_file}"
   done
@@ -237,13 +253,6 @@ function shellb_command_find_del() {
 ###############################################
 # command functions - compgen
 ###############################################
-
-
-
-
-
-
-
 
 _SHELLB_COMMAND_ACTIONS="new save del run edit list purge"
 
@@ -340,26 +349,22 @@ function _shellb_command_list_compgen() {
 function _shellb_command_compgen() {
   _shellb_print_dbg "_shellb_command_compgen($*)"
 
-  local comp_cur comp_prev opts idx_offset action arg
-
-  idx_offset=1
+  local comp_cur opts action arg
   comp_cur="${COMP_WORDS[COMP_CWORD]}"
-  comp_prev="${COMP_WORDS[COMP_CWORD-1]}"
-
   _shellb_print_dbg "comp_cur: \"${comp_cur}\" COMP_CWORD: \"${COMP_CWORD}\""
 
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
 
-  case $((COMP_CWORD-idx_offset)) in
-    1)
+  case $((COMP_CWORD)) in
+    2)
       opts="${_SHELLB_COMMAND_ACTIONS} help"
       ;;
-    2)
+    3)
       action="${COMP_WORDS[2]}"
       case "${action}" in
         help)
-          opts=${_SHELLB_COMMAND_ACTIONS}
+          opts="${_SHELLB_COMMAND_ACTIONS}"
           ;;
         new)
           _shellb_command_list_compgen
@@ -391,8 +396,8 @@ function _shellb_command_compgen() {
       esac
       ;;
     *)
-      action="${COMP_WORDS[2]}"
-      arg="${COMP_WORDS[3]}"
+      action="${COMP_WORDS[3]}"
+      arg="${COMP_WORDS[4]}"
       case "${action}" in
         help)
           opts=${_SHELLB_COMMAND_ACTIONS}
