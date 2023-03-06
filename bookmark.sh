@@ -76,7 +76,7 @@ function shellb_bookmark_set() {
     if (_shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}"); then
       :
     else
-      _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name})")\" exists, overwrite?" || return 0
+      _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name}")\" exists, overwrite?" || return 0
     fi
   fi
 
