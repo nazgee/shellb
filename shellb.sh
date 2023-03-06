@@ -13,6 +13,7 @@
 # paths
 _SHELLB_RC="$(realpath -q ~/.shellbrc)"
 _SHELLB_MODULES=("bookmark" "command" "note")
+_SHELLB_ALIASES=""
 
 # colors
 _SHELLB_COLOR_NONE="\e[m"
@@ -54,7 +55,6 @@ _SHELLB_CFG_RC_DEFAULT=\
 '
 # TODO add config here
 '
-
 
 ###############################################
 # init
@@ -118,6 +118,16 @@ function _shellb_reload-config_action() {
   _shellb_print_nfo "loaded (${_SHELLB_SOURCE_LOCATION} + ${_SHELLB_RC})"
 }
 
+function _shellb_aliases_compgen() {
+  :
+}
+
+function _shellb_aliases_action() {
+  for alias in ${_SHELLB_ALIASES}; do
+    type "${alias}"
+  done
+}
+
 function shellb() {
   _shellb_print_dbg "shellb($*)"
   _shellb_module_action "$@"
@@ -135,7 +145,7 @@ function _shellb() {
 
   case ${COMP_CWORD} in
     1)
-      opts="${_SHELLB_MODULES[*]} help reload-config"
+      opts="${_SHELLB_MODULES[*]} help reload-config aliases"
       ;;
     *)
       _shellb_print_dbg "calling module compgen"
@@ -152,6 +162,9 @@ function _shellb() {
   return 0
 }
 
+###############################################
+# modules installation
+###############################################
 if [[ -n "${SHELB_DEVEL_DIR}" ]]; then
   # shellcheck source=core.sh
   source core.sh
@@ -172,13 +185,12 @@ else
 fi
 
 ###############################################
-# completions for shortcuts
-# (shortcuts prefixed with _)
+# completions installation
 ###############################################
 function shellb_completions_install() {
-  local shellb_aliases=$(cat "${_SHELLB_RC}" | grep -v "^[ \t]*#" | grep "^[ \t]*alias " | sed 's/[ /t]*alias[ /t]//' | sed 's/\([^=]*\)=.*/\1/')
+  _SHELLB_ALIASES=$(cat "${_SHELLB_RC}" | grep -v "^[ \t]*#" | grep "^[ \t]*alias " | sed 's/[ /t]*alias[ /t]//' | sed 's/\([^=]*\)=.*/\1/')
 
-  for alias in ${shellb_aliases}; do
+  for alias in ${_SHELLB_ALIASES}; do
     _shellb_print_dbg "installing completion for alias: ${alias}"
     complete -F _complete_alias "${alias}"
   done
