@@ -168,13 +168,19 @@ function shellb_command_list_del() {
 
   list=$(shellb_command_list "${user_dir}") || return 1
   echo "${list}"
-  _shellb_print_nfo "select command to delete:"
-
-  read -r selection || return 1
+  if [ "$(echo "${list}" | wc -l)" -gt 2 ]; then
+    _shellb_print_nfo "select command to delete:"
+    read -r selection || return 1
+  else
+    selection=1
+  fi
   target="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
 
   mapfile -t matching_cmd_files < <(_shellb_command_list_matching "${target}" "${user_dir}")
   for cmd_file in "${matching_cmd_files[@]}"; do
+    local proto_target
+    proto_target=$(_shellb_core_calc_domainrel_from_abs "${cmd_file}" "${_SHELLB_DB_COMMANDS}")
+    _shellb_core_get_user_confirmation "delete command file \"${proto_target}\" for \"$(cat "${cmd_file}")\"?" || return 0
     rm "${cmd_file}"
   done
 
