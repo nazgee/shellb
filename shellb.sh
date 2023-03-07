@@ -130,7 +130,8 @@ function _shellb_aliases_action() {
 }
 
 function shellb() {
-  _shellb_print_nfo "shellb $*"
+  _shellb_print_nfo "$ shellb $*"
+  [ -n "$1" ] || _shellb_print_err "no module specified" || return 1
   _shellb_module_action "$@"
 }
 
