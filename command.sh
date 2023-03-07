@@ -29,13 +29,15 @@ function _shellb_command_generate_filename() {
   echo "${cmd_file}.${_SHELLB_CFG_COMMAND_EXT}"
 }
 
-# List command files matching given command in given dir
+# List abs command files matching given command in given dir
 # $1 - command to match
 # $2 - user dir to search for already installed commands
 function _shellb_command_list_matching() {
-  local target user_dir available_cmd_files
+  _shellb_print_dbg "_shellb_command_list_matching($*)"
+  local target user_dir domain_dir available_cmd_files
   target="${1}"
   user_dir="${2}"
+  domain_dir=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
 
   mapfile -t available_cmd_files < <(_shellb_core_domain_files_ls "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
   for cmd_file in "${available_cmd_files[@]}"; do
@@ -83,14 +85,25 @@ function _shellb_command_save() {
   echo "${command_string}" > "${domain_dir}/${cmd_file}" || _shellb_print_wrn_fail "failed to save command <${command_string}> to \"${domain_dir}/${cmd_file}\"" || return 1
 }
 
+# Show prompt with current command, and allow user to edit it
+# command will be saved if user confirms with ENTER
+# ${1} - optional: directory to save command for (default is current dir)
+# ${2} - optional: command string to edit (can be empty)
+function _shellb_command_edit() {
+  local user_dir command_string
+  user_dir="${1:-.}"
+  command_string="${2}"
+  read -e -p "$ " -i "${command_string}" command_string || return 1
+  _shellb_command_save "${command_string}" "${user_dir}"
+}
+
 # ${1} - directory to save command for. default is current dir
 function shellb_command_save_previous() {
   local command_string user_dir
   user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
   command_string=$(history | tail -n 2 | head -n 1 | sed 's/[0-9 ]*//')
   _shellb_print_nfo "save previous command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
-  read -e -p "$ " -i "${command_string}" command_string
-  _shellb_command_save "${command_string}" "${user_dir}"
+  _shellb_command_edit "${user_dir}" "${command_string}"
 }
 
 # ${1} - directory to save command for. default is current dir
@@ -98,8 +111,7 @@ function shellb_command_save_interactive() {
   local command_string user_dir
   user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
   _shellb_print_nfo "save new command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
-  read -r -e -p "$ " command_string || return 1
-  _shellb_command_save "${command_string}" "${user_dir}"
+  _shellb_command_edit "${user_dir}" "${command_string}"
 }
 
 # ${1} command to execute
@@ -157,6 +169,44 @@ function shellb_command_list_exec() {
   read -r -e -p "$ " -i "${target}" target && history -s "${target}" && _shellb_command_exec "${target}"
 }
 
+# Open a list of commands installed for given dir, and allow user to select which one should edited
+# $1 - optional directory to list command for (default: current dir)
+function shellb_command_list_edit() {
+  _shellb_print_dbg "shellb_command_list_edit($*)"
+  local list command_string selection user_dir
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
+
+  list=$(shellb_command_list "${user_dir}") || return 1
+  echo "${list}"
+  _shellb_print_nfo "select command to edit:"
+
+  read -r selection || return 1
+  command_string="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
+
+  [ -n "${command_string}" ] || _shellb_print_err "command list edit failed, no command" || return 1
+
+  mapfile -t matching_cmd_files < <(_shellb_command_list_matching "${command_string}" "${user_dir}")
+
+  [ ${#matched_command_files[@]} -eq 0 ] || _shellb_print_err "command list edit failed, command file not found" || return 1
+
+  # check if multiple files are matching the command
+  local cmd_file_index
+  cmd_file_index=0
+  if [ ${#matched_command_files[@]} -gt 1 ]; then
+    _shellb_print_wrn "command <${command_string}> is defined multiple times, please choose which one to edit:"
+    # TODO implement
+    _shellb_print_err "not unimplemented"
+    return 0
+  fi
+
+  local edit_target_proto edit_target_abs
+  edit_target_abs="${matching_cmd_files[${cmd_file_index}]}"
+  edit_target_proto=$(_shellb_core_calc_domainrel_from_abs "${edit_target_abs}" "${_SHELLB_DB_COMMANDS}")
+
+  _shellb_print_nfo "edit command (edit & confirm with ENTER or cancel with ctrl-c)"
+  _shellb_command_edit "${user_dir}" "${command_string}" && rm "${edit_target_abs}"
+}
+
 # Open a list of commands installed for given dir, and allow user to select which one should be deleted
 # $1 - optional directory to list command for (default: current dir)
 function shellb_command_list_del() {
@@ -176,6 +226,7 @@ function shellb_command_list_del() {
   target="$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 3)"
 
   mapfile -t matching_cmd_files < <(_shellb_command_list_matching "${target}" "${user_dir}")
+
   for cmd_file in "${matching_cmd_files[@]}"; do
     local proto_target
     proto_target=$(_shellb_core_calc_domainrel_from_abs "${cmd_file}" "${_SHELLB_DB_COMMANDS}")
@@ -325,7 +376,23 @@ function _shellb_command_action() {
       esac
       ;;
     edit)
-      _shellb_print_err "unimplemented \"command $action\""
+      local arg="$1"
+      shift
+      case "${arg}" in
+        -a|--all)
+          _shellb_print_err "unimplemented \"command $action\""
+          ;;
+        -c|--current)
+          shellb_command_list_edit "$@"
+          ;;
+        -r|--recursive)
+          _shellb_print_err "unimplemented \"command $action\""
+          ;;
+        *)
+          _shellb_print_err "unknown scope \"${arg}\" passed to \"command $action\""
+          return 1
+          ;;
+      esac
       ;;
     list)
       local arg="$1"
