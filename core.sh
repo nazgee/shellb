@@ -66,7 +66,7 @@ function _shellb_core_domain_files_ls() {
   [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
   [ -n "${file_glob}" ] || file_glob="*"
   [ -n "${user_dir}" ] || user_dir="."
-  find "${domain_dir}/${user_dir}" -maxdepth 1 -type f -name "${file_glob}" -printf "%P\n"
+  find "${domain_dir}/${user_dir}" -maxdepth 1 -type f -name "${file_glob}" -printf "%P\n" 2>/dev/null
 }
 
 function _shellb_core_domain_files_find() {
@@ -78,7 +78,7 @@ function _shellb_core_domain_files_find() {
   [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
   [ -n "${file_glob}" ] || file_glob="*"
   [ -n "${user_dir}" ] || user_dir="."
-  find "${domain_dir}/${user_dir}" -type f -name "${file_glob}" -printf "%P\n"
+  find "${domain_dir}/${user_dir}" -type f -name "${file_glob}" -printf "%P\n" 2>/dev/null
 }
 
 # filter row from stdin

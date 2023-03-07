@@ -130,7 +130,7 @@ function _shellb_aliases_action() {
 }
 
 function shellb() {
-  _shellb_print_dbg "shellb($*)"
+  _shellb_print_nfo "shellb $*"
   _shellb_module_action "$@"
 }
 
