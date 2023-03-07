@@ -61,8 +61,9 @@ function _shellb_command_find_matching() {
   done
 }
 
+# Save given command for a given user dir.
 # ${1} - command string
-# ${2} - directory to save command for
+# ${2} - optional: directory to save command for (default is current dir)
 function _shellb_command_save() {
   _shellb_print_dbg "shellb_command_save($*)"
   local command_string user_dir domain_dir matched_command_files cmd_file cmd_absfile cmd_domainfile
@@ -178,7 +179,8 @@ function shellb_command_list_del() {
   for cmd_file in "${matching_cmd_files[@]}"; do
     local proto_target
     proto_target=$(_shellb_core_calc_domainrel_from_abs "${cmd_file}" "${_SHELLB_DB_COMMANDS}")
-    _shellb_core_get_user_confirmation "delete command file \"${proto_target}\" for \"$(cat "${cmd_file}")\"?" || return 0
+    _shellb_print_nfo "command file: \"${proto_target}\""
+    _shellb_core_get_user_confirmation "delete command \"$(cat "${cmd_file}")\"?" || return 0
     rm "${cmd_file}"
   done
 
@@ -253,7 +255,8 @@ function shellb_command_find_del() {
   for cmd_file in "${matching_cmd_files[@]}"; do
     local proto_target
     proto_target=$(_shellb_core_calc_domainrel_from_abs "${cmd_file}" "${_SHELLB_DB_COMMANDS}")
-    _shellb_core_get_user_confirmation "delete command file \"${proto_target}\" for \"$(cat "${cmd_file}")\"?" || return 0
+    _shellb_print_nfo "command file: \"${proto_target}\""
+    _shellb_core_get_user_confirmation "delete command \"$(cat "${cmd_file}")\"?" || return 0
     rm "${cmd_file}"
   done
 
