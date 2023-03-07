@@ -118,7 +118,7 @@ function shellb_notepad_list() {
 function shellb_notepad_list_edit() {
   _shellb_print_dbg "shellb_notepad_list_edit($*)"
   local list target selection user_dir
-  user_dir="${1:-/}"
+  user_dir="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
 
   if [ -d "${user_dir}" ]; then
     list=$(shellb_notepad_list "${user_dir}") || return 1
