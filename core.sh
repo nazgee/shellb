@@ -57,6 +57,10 @@ function _shellb_core_get_user_confirmation() {
   esac
 }
 
+# list all files in a given domain directory (just file names matching glob, relative to the domain dir)
+# ${1} - domain directory
+# ${2} - file glob
+# ${3} - user dir
 function _shellb_core_domain_files_ls() {
   _shellb_print_dbg "_shellb_core_domain_files_ls($*)"
   local domain_dir user_dir file_glob
@@ -69,6 +73,10 @@ function _shellb_core_domain_files_ls() {
   find "${domain_dir}/${user_dir}" -maxdepth 1 -type f -name "${file_glob}" -printf "%P\n" 2>/dev/null
 }
 
+# list all files below a given domain directory (just file names matching glob, relative to the domain dir)
+# ${1} - domain directory
+# ${2} - file glob
+# ${3} - user dir
 function _shellb_core_domain_files_find() {
   _shellb_print_dbg "_shellb_core_domain_dirs_list($*)"
   local domain_dir user_dir file_glob
@@ -89,17 +97,68 @@ function _shellb_core_filter_row() {
   while read -r line; do
       if [ $i -eq $1 ]; then
           echo "$line"
+          return 0
       fi
       i=$((i+1))
   done
+  return 1
 }
 
 # filter column from stdin
+# will fail if the column is empty
 # ${1} - column number
 function _shellb_core_filter_column() {
+  local filtered_line
   while read -r line; do
-      echo "$line" | awk -F' \\| ' "{print \$${1}}"
+      filtered_line=$(echo "$line" | awk -F' \\| ' "{print \$${1}}")
+      [ -n "${filtered_line}" ] && echo "${filtered_line}" || return 1
   done
+}
+
+# filter stdin and add prefix to each line
+# will fail if line is empty
+# ${1} - prefix
+function _shellb_core_filter_add_prefix() {
+  local prefix
+  prefix="${1}"
+  while read -r line; do
+    [ -z "${line}" ] && return 1
+    echo "${prefix}${line}"
+  done
+}
+
+# fail if given path is not below given domain
+# ${1} - path
+# ${2} - domain
+function _shellb_is_path_below() {
+  local path domain
+  path="${1}"
+  domain="${2}"
+  [ -n "${path}" ] || _shellb_print_err "path can't be empty" || return 1
+  [ -n "${domain}" ] || _shellb_print_err "domain can't be empty" || return 1
+
+  path=$(realpath -m "${path}")
+  domain=$(realpath -m "${domain}")
+
+  # make sure that path and dir are not the same
+  if [[ "$path" == "$domain" ]]; then
+    return 1
+  fi
+
+  # make sure that path is below dir
+  [[ "${path}" == "${domain}"* ]] || return 1
+}
+
+# fail if given path is not below _SHELLB_DB
+# fail if given path is not below given domain
+# ${1} - path
+# ${2} - domain
+function _shellb_is_path_below_and_owned_by_shellb() {
+  local path domain
+  path="${1}"
+  domain="${2}"
+  _shellb_is_path_below "${path}" "${_SHELLB_DB}" || return 1
+  _shellb_is_path_below "${path}" "${domain}" || return 1
 }
 
 # trims and compresses whitespaces in a given string
@@ -114,37 +173,40 @@ function _shellb_core_string_trim() {
   echo "${1}" | xargs
 }
 
-# Returns absolute file or directory path, translated into a given domain. Always succeeds.
+# Returns absolute file or directory path, translated into a given domain.
+# Fails only if domain is not below _SHELLB_DB
 # ${1} - user dir or file
 # ${2} - shellb domain directory
 function _shellb_core_calc_domain_from_user() {
   _shellb_print_dbg "_shellb_core_calc_domain_from_user($*)"
   local file_user domain
-  file_user="$(realpath -mq "${1}")"
   domain="${2}"
+  _shellb_is_path_below_and_owned_by_shellb "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
+  file_user="$(realpath -mq "${1}")"
+  # remove duplicated slashes
   echo "${domain}/${file_user}" | tr -s /
 }
 
-# Returns absolute file path translated into a given domain.
+# Translates given user file to shellb domain absolute path.
 # Will fail if file does not exist in the domain
 # ${1} - user filename
 # ${2} - shellb domain directory
 function _shellb_core_file_get_domain_from_user() {
   _shellb_print_dbg "_shellb_core_file_get_domain_from_user($*)"
   local in_domain
-  in_domain=$(_shellb_core_calc_domain_from_user "${1}" "${2}")
-  [ -f "${in_domain}" ] || _shellb_print_err "file '${in_domain}' does not exist in \"${2}\" domain" || return 1
+  in_domain=$(_shellb_core_calc_domain_from_user "${1}" "${2}") || return 1
+  [ -f "${in_domain}" ] || _shellb_print_err "\"${in_domain}\" does not exist in \"${2}\" domain" || return 1
   echo "${in_domain}"
 }
 
-# Returns absolute directory path translated into a given domain.
-# Will fail if directory does not exist in the domain.
+# Translates given user dir to shellb domain absolute path.
+# Will fail if dir does not exist in the domain
 # ${1} - user dirname
 # ${2} - shellb domain directory
 function _shellb_core_dir_get_domain_from_user() {
   _shellb_print_dbg "_shellb_core_file_get_domain_from_user($*)"
   local in_domain
-  in_domain=$(_shellb_core_calc_domain_from_user "${1}" "${2}")
+  in_domain=$(_shellb_core_calc_domain_from_user "${1}" "${2}") || return 1
   [ -d "${in_domain}" ] || _shellb_print_err "directory '${in_domain}' does not exist in \"${2}\" domain" || return 1
   echo "${in_domain}"
 }
@@ -153,7 +215,11 @@ function _shellb_core_dir_get_domain_from_user() {
 # ${1} - absolute dir/file path (under domain)
 # ${2} - domain
 function _shellb_core_calc_domainrel_from_abs() {
-  local path
+  _shellb_print_dbg "_shellb_core_calc_domainrel_from_abs($*)"
+  local path domain
+  domain="${2}"
+  _shellb_is_path_below_and_owned_by_shellb "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
+  _shellb_is_path_below_and_owned_by_shellb "${1}" "${domain}" || _shellb_print_err "path=${1} is not below domain=${domain}" || return 1
   path=$(echo "${1#"$2"}" | tr -s /)
   echo "${_SHELLB_CFG_PROTO}${path#"/"}"
 }
