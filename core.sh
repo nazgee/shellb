@@ -70,7 +70,18 @@ function _shellb_core_domain_files_ls() {
   [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
   [ -n "${file_glob}" ] || file_glob="*"
   [ -n "${user_dir}" ] || user_dir="."
+  user_dir="$(realpath -mq "${user_dir}")"
   find "${domain_dir}/${user_dir}" -maxdepth 1 -type f -name "${file_glob}" -printf "%P\n" 2>/dev/null
+}
+
+function _shellb_core_domain_files_ls_abs() {
+  _shellb_print_dbg "_shellb_core_domain_files_ls_abs($*)"
+  local domain_dir user_dir file_glob
+  domain_dir="${1}"
+  file_glob="${2}"
+  user_dir="$(realpath -mq "${3}")"
+
+  _shellb_core_domain_files_ls "${domain_dir}" "${file_glob}" "${user_dir}" | _shellb_core_filter_add_prefix "${domain_dir}/${user_dir}/" | tr -s /
 }
 
 # list all files below a given domain directory (just file names matching glob, relative to the domain dir)
@@ -86,7 +97,18 @@ function _shellb_core_domain_files_find() {
   [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
   [ -n "${file_glob}" ] || file_glob="*"
   [ -n "${user_dir}" ] || user_dir="."
+  user_dir="$(realpath -mq "${user_dir}")"
   find "${domain_dir}/${user_dir}" -type f -name "${file_glob}" -printf "%P\n" 2>/dev/null
+}
+
+function _shellb_core_domain_files_find_abs() {
+  _shellb_print_dbg "_shellb_core_domain_files_find_abs($*)"
+  local domain_dir user_dir file_glob
+  domain_dir="${1}"
+  file_glob="${2}"
+  user_dir="$(realpath -mq "${3}")"
+
+  _shellb_core_domain_files_find "${domain_dir}" "${file_glob}" "${user_dir}" | _shellb_core_filter_add_prefix "${domain_dir}/${user_dir}/" | tr -s /
 }
 
 # filter row from stdin
