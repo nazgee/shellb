@@ -26,7 +26,7 @@ function _shellb_bookmarks_calc_absfile() {
 }
 
 function _shellb_bookmark_glob() {
-  _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${1}" "/"
+  _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${1}" "/" | tr ' ' '\n' | sort
 }
 
 function _shellb_bookmark_get() {
@@ -149,8 +149,11 @@ function shellb_bookmark_list_long() {
   # print the bookmarks
   local i=1
   for bookmark in "${matched_bookmarks[@]}"; do
-    printf "%3s) | " "${i}"
-    shellb_bookmark_get_long "${bookmark}"
+    if [[ $(((i-1) % 2)) -lt 1 ]]; then
+        printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %ss${_SHELLB_COLOR_NONE}\n" "${i}" "$(shellb_bookmark_get_long "${bookmark}")"
+    else
+      printf "%3s) | %s\n" "${i}" "$(shellb_bookmark_get_long "${bookmark}")"
+    fi
     i=$((i+1))
   done
 }
