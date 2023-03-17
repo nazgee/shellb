@@ -25,7 +25,7 @@ function _shellb_bookmarks_calc_absfile() {
   _shellb_core_calc_domain_from_user "/${1}" "${_SHELLB_DB_BOOKMARKS}"
 }
 
-function _shellb_bookmark_glob(){
+function _shellb_bookmark_glob() {
   _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${1}" "/"
 }
 

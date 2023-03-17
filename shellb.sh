@@ -48,6 +48,7 @@ _SHELLB_CFG_LOG_PREFIX="shellb | "
 _SHELLB_CFG_PROTO="shellb://"
 _SHELLB_CFG_NOTE_FILE="note.md"
 _SHELLB_CFG_COMMAND_EXT="shellbcommand"
+_SHELLB_CFG_COMMAND_TAG_EXT="shellbcmdtag"
 
 _SHELLB_CFG_HELP_RELOAD="invoke \"shellb reload-config\" to reload config from \"${_SHELLB_RC}\""
 
@@ -125,7 +126,7 @@ function _shellb_aliases_compgen() {
 function _shellb_aliases_action() {
   _shellb_print_nfo "list of aliases defined in ${_SHELLB_RC}"
   for alias in ${_SHELLB_ALIASES}; do
-    _shellb_print_nfo "   $(type "${alias}")"
+    _shellb_print_nfo "$(type "${alias}" | sed -e "s/is aliased to \`/\t = /g; s/^/\t/; s/'$//;")"
   done
 }
 

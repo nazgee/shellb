@@ -76,59 +76,59 @@ function test__shellb_core_filter_add_prefix() {
 }
 test__shellb_core_filter_add_prefix
 
-function test__shellb_is_path_below() {
+function test__shellb_core_is_path_below() {
   _shellb_print_nfo "${FUNCNAME[0]}"
 
   # if we're below, we should return 0
-  _shellb_is_path_below "/tmp/foo"  "/tmp"  || fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/foo/" "/tmp"  || fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/foo"  "/tmp/" || fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/foo/" "/tmp"  || fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo"  "/tmp"  || fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo/" "/tmp"  || fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo"  "/tmp/" || fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo/" "/tmp"  || fail "${FUNCNAME[0]}" "${LINENO}"
 
   # if we're equal, we should fail
-  _shellb_is_path_below "/tmp"  "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/" "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp"  "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/" "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp"  "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/" "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp"  "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/" "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
 
   # if we're above, we should fail
-  _shellb_is_path_below "/tmp"  "/tmp/foo"  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/" "/tmp/foo"  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp"  "/tmp/foo/" && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/" "/tmp/foo/" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp"  "/tmp/foo"  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/" "/tmp/foo"  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp"  "/tmp/foo/" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/" "/tmp/foo/" && fail "${FUNCNAME[0]}" "${LINENO}"
 
   # if we're equal because of .. on domain, we should fail
-  _shellb_is_path_below "/tmp"  "/tmp/foo/.."  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/" "/tmp/foo/.."  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp"  "/tmp/foo/../" && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/" "/tmp/foo/../" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp"  "/tmp/foo/.."  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/" "/tmp/foo/.."  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp"  "/tmp/foo/../" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/" "/tmp/foo/../" && fail "${FUNCNAME[0]}" "${LINENO}"
 
   # if we're equal because of .. on path, we should fail
-  _shellb_is_path_below "/tmp/foo/.."  "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/foo/../" "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/foo/.."  "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp/foo/../" "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo/.."  "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo/../" "/tmp"  && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo/.."  "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp/foo/../" "/tmp/" && fail "${FUNCNAME[0]}" "${LINENO}"
 
   # empty path or domain should fail
-  _shellb_is_path_below "" "/tmp" 2>/dev/null && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "/tmp" "" 2>/dev/null && fail "${FUNCNAME[0]}" "${LINENO}"
-  _shellb_is_path_below "" "" 2>/dev/null && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "" "/tmp" 2>/dev/null && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "/tmp" "" 2>/dev/null && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below "" "" 2>/dev/null && fail "${FUNCNAME[0]}" "${LINENO}"
 }
-test__shellb_is_path_below
+test__shellb_core_is_path_below
 
-function test__shellb_is_path_below_and_owned_by_shellb() {
+function test__shellb_core_is_path_below_and_owned() {
   _shellb_print_nfo "${FUNCNAME[0]}"
 
   # if we're below domain, we should work
-  _shellb_is_path_below_and_owned_by_shellb "${_SHELLB_DB_COMMANDS}/foo" "${_SHELLB_DB_COMMANDS}" || fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below_and_owned "${_SHELLB_DB_COMMANDS}/foo" "${_SHELLB_DB_COMMANDS}" || fail "${FUNCNAME[0]}" "${LINENO}"
 
   # if we're equal to domain we should fail
-  _shellb_is_path_below_and_owned_by_shellb "${_SHELLB_DB_COMMANDS}" "${_SHELLB_DB_COMMANDS}" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below_and_owned "${_SHELLB_DB_COMMANDS}" "${_SHELLB_DB_COMMANDS}" && fail "${FUNCNAME[0]}" "${LINENO}"
 
   # we should fail if the domain is outside of shellb, even if path is below domain
-  _shellb_is_path_below_and_owned_by_shellb "/tmp/foo" "/tmp" && fail "${FUNCNAME[0]}" "${LINENO}"
+  _shellb_core_is_path_below_and_owned "/tmp/foo" "/tmp" && fail "${FUNCNAME[0]}" "${LINENO}"
 }
-test__shellb_is_path_below_and_owned_by_shellb
+test__shellb_core_is_path_below_and_owned
 
 function test__shellb_core_calc_domain_from_user() {
   _shellb_print_nfo "${FUNCNAME[0]}"
@@ -180,16 +180,45 @@ test__shellb_core_calc_domainrel_from_abs
 
 
 demo_multiple_arrays() {
-  local -n _array_one=$1
-  local -n _array_two=$2
+  local foo
+  foo=$1
+  echo "${foo}"
+
+  [[ "$(declare -p "$2" 2>/dev/null)" =~ "declare -a" && "$(declare -p "$3" 2>/dev/null)" =~ "declare -a" ]] || { echo "Error: the 2nd and/or 3rd arguments are not arrays"; return 1; }
+  local -n _array_one=$2
+  local -n _array_two=$3
+
   printf '1: %q\n' "${_array_one[@]}"
   printf '2: %q\n' "${_array_two[@]}"
 
   _array_one[1]="new value"
 }
 
-array_one=( "one argument" "another argument" )
-array_two=( "array two part one" "array two part two" )
 
-demo_multiple_arrays array_one array_two
-demo_multiple_arrays array_one array_two
+function testit() {
+  local _array_one=( "one argument" "another argument" )
+  local _array_two=( "array two part one" "array two part two" )
+
+  demo_multiple_arrays bar _array_one _array_two
+  demo_multiple_arrays baz _array_one _array_two
+}
+
+testit
+
+#demo_multiple_arrays bar "bax" array_two
+#
+#somefiles=( )
+#somecommands=( )
+#
+#shellb_command_list .
+#declare -p somefiles
+#declare -p somecommands
+#
+#shellb_command_list . somefiles
+#declare -p somefiles
+#declare -p somecommands
+#
+#shellb_command_list . somefiles somecommands
+#declare -p somefiles
+
+#declare -p somecommands
