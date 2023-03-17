@@ -111,6 +111,16 @@ function _shellb_command_selection_del() {
   _shellb_core_remove "${chosen_file}" && _shellb_print_nfo "command deleted: ${chosen_command}"
 }
 
+# ${1} - absolute path to command file
+_function_get_tagfile_from_commandfile() {
+  _shellb_print_dbg "_function_get_tagfile_from_commandfile($*)"
+  local cmd_file uuid_file
+  cmd_file="${1}"
+  uuid_file="$(basename "${cmd_file}")"
+  uuid_file="${uuid_file%.*}"
+  echo "${cmd_file%/*}/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
+}
+
 # Ask user to select a number from 1 to size of given array
 # and execute the command from a selected command file
 # ${1} - array with command files
@@ -132,6 +142,7 @@ function _shellb_command_selection_edit() {
   uuid_file="${uuid_file%.*}"
   tag="$(cat "$(dirname "${chosen_file}")/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
   _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ "
+  _shellb_print_nfo "edit tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
   _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: "
 }
 
@@ -144,6 +155,7 @@ function shellb_command_save_previous() {
   uuid_file="$(uuidgen -t)"
   tag="$(cat "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
   _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ "
+  _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
   _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: "
 }
 
@@ -154,6 +166,7 @@ function shellb_command_save_interactive() {
   _shellb_print_nfo "save new command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
   uuid_file="$(uuidgen -t)"
   _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ "
+  _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
   _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: "
 }
 
@@ -166,7 +179,18 @@ function _shellb_command_print_line() {
   file="${file%.*}"
   tag="$(cat "$(dirname "${2}")/${file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
-  printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")"
+#  if (( i % 2 == 1 )); then
+#    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")" | sed -e 's@\([.]*|\)\([^|]*\)@\1\n\2@' | sed -e 's@\([^|]*\)\([.]*\)@\1\n\2@' | sed -e '3s/ /\./g ; 3s/^\./ /; 3s/\.$/ /; ' | tr -d '\n' | sed '$s/$/\n/'
+#  else
+#    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")" | sed -e 's@\([.]*|\)\([^|]*\)@\1\n\2@' | sed -e 's@\([^|]*\)\([.]*\)@\1\n\2@' | sed -e '3s/ /_/g ; 3s/^_/ /; 3s/_$/ /; ' | tr -d '\n' | sed '$s/$/\n/'
+#  fi
+
+  if [[ $(((i-1) % 2)) -lt 1 ]]; then
+    printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %20s | %s${_SHELLB_COLOR_NONE}\n" "${i}" "${tag}" "$(cat "${2}")"
+  else
+    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")"
+  fi
+
 }
 
 function _shellb_command_print_lines() {
@@ -232,10 +256,32 @@ function shellb_command_list() {
   _shellb_print_dbg "shellb_command_list($*)"
 
   # shellcheck disable=SC2034
-  local -n shellb_command_list_files=$2    2> /dev/null # ignore error if variable is not declared
+  local -n shellb_command_list_files=$1    2> /dev/null # ignore error if variable is not declared
+  shift
+
+  local tag
+  [[ "${2:0:1}" = "@" ]] && tag="${2:1}" && shift
+  [[ "${1:0:1}" = "@" ]] && tag="${1:1}" && shift
   _shellb_command_list_flat "${1}" shellb_command_list_files || return 1
-  # print commands
-  _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
+
+  # print only commands that match the tag
+  if [[ -n "${tag}" ]]; then
+    local -a shellb_command_list_files_tagged
+    for file in "${shellb_command_list_files[@]}"; do
+      local tagfile
+      tagfile=$(_function_get_tagfile_from_commandfile "${file}")
+      if grep -qw "${tag}" "${tagfile}" 2>/dev/null; then
+        shellb_command_list_files_tagged+=("${file}")
+      fi
+    done
+    shellb_command_list_files=("${shellb_command_list_files_tagged[@]}")
+
+    [ ${#shellb_command_list_files_tagged[@]} -gt 0 ] || _shellb_print_err "no commands found with tag \"${tag}\"" || return 1
+    _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\" with tag \"${tag}\""
+  else
+    _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
+  fi
+
   _shellb_command_print_lines shellb_command_list_files
 }
 
@@ -247,7 +293,7 @@ function shellb_command_list_exec() {
   # shellcheck disable=SC2034
   local -a shellb_command_list_exec_files
   # get list of commands
-  shellb_command_list "${1}" shellb_command_list_exec_files || return 1
+  shellb_command_list shellb_command_list_exec_files "$@"|| return 1
   _shellb_command_selection_exec "${shellb_command_list_exec_files[@]}"
 }
 
@@ -259,7 +305,7 @@ function shellb_command_list_edit() {
   # shellcheck disable=SC2034
   local -a shellb_command_list_edit_files
   # get list of commands
-  shellb_command_list "${1}" shellb_command_list_edit_files || return 1
+  shellb_command_list shellb_command_list_edit_files "$@" || return 1
   _shellb_command_selection_edit "${shellb_command_list_edit_files[@]}"
 }
 
@@ -271,7 +317,7 @@ function shellb_command_list_del() {
   # shellcheck disable=SC2034
   local -a shellb_command_list_del_files
   # get list of commands
-  shellb_command_list "${1}" shellb_command_list_del_files || return 1
+  shellb_command_list shellb_command_list_del_files "$@" || return 1
   _shellb_command_selection_del "${shellb_command_list_del_files[@]}"
 }
 
@@ -285,12 +331,34 @@ function shellb_command_find() {
   _shellb_print_dbg "shellb_command_find($*)"
 
   # shellcheck disable=SC2034
-  local -n shellb_command_list_files=$2    2> /dev/null # ignore error if variable is not declared
-  _shellb_command_list_recursive "${1}" shellb_command_list_files || return 1
+  local -n shellb_command_find_files=$1    2> /dev/null # ignore error if variable is not declared
+  shift
+
+  local tag
+  [[ "${2:0:1}" = "@" ]] && tag="${2:1}" && shift
+  [[ "${1:0:1}" = "@" ]] && tag="${1:1}" && shift
+  _shellb_command_list_recursive "${1}" shellb_command_find_files || return 1
+
+  # print only commands that match the tag
+  if [[ -n "${tag}" ]]; then
+    local -a shellb_command_find_files_tagged
+    for file in "${shellb_command_find_files[@]}"; do
+      local tagfile
+      tagfile=$(_function_get_tagfile_from_commandfile "${file}")
+      if grep -qw "${tag}" "${tagfile}" 2>/dev/null; then
+        shellb_command_find_files_tagged+=("${file}")
+      fi
+    done
+    shellb_command_find_files=("${shellb_command_find_files_tagged[@]}")
+
+    [ ${#shellb_command_find_files_tagged[@]} -gt 0 ] || _shellb_print_err "no commands found with tag \"${tag}\"" || return 1
+    _shellb_print_nfo "commands below \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\" with tag \"${tag}\""
+  else
+    _shellb_print_nfo "commands below \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
+  fi
 
   # print commands
-  _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
-  _shellb_command_print_lines shellb_command_list_files
+  _shellb_command_print_lines shellb_command_find_files
 }
 
 function shellb_command_find_exec() {
@@ -300,7 +368,7 @@ function shellb_command_find_exec() {
   local shellb_command_find_exec_files
 
   # get list of commands
-  shellb_command_find "${1}" shellb_command_find_exec_files || return 1
+  shellb_command_find shellb_command_find_exec_files "$@"|| return 1
   _shellb_command_selection_exec "${shellb_command_find_exec_files[@]}"
 }
 
@@ -312,7 +380,7 @@ function shellb_command_find_edit() {
   # shellcheck disable=SC2034
   local -a shellb_command_find_edit_files
   # get list of commands
-  shellb_command_find "${1}" shellb_command_find_edit_files || return 1
+  shellb_command_find shellb_command_find_edit_files "$@" || return 1
   _shellb_command_selection_edit "${shellb_command_find_edit_files[@]}"
 }
 
@@ -322,7 +390,7 @@ function shellb_command_find_del() {
   # shellcheck disable=SC2034
   local -a shellb_command_find_del_files
   # get list of commands
-  shellb_command_find "${1}" shellb_command_find_del_files || return 1
+  shellb_command_find shellb_command_find_del_files "$@" || return 1
   _shellb_command_selection_del "${shellb_command_find_del_files[@]}"
 }
 
@@ -402,10 +470,10 @@ function _shellb_command_action() {
       shift
       case "${arg}" in
         -c|--current)
-          shellb_command_list "$@"
+          shellb_command_list "" "$@"
           ;;
         -r|--recursive)
-          shellb_command_find "$@"
+          shellb_command_find "" "$@"
           ;;
         *)
           _shellb_print_err "unknown scope \"${arg}\" passed to \"command $action\""
@@ -476,8 +544,8 @@ function _shellb_command_compgen() {
       esac
       ;;
     *)
-      action="${COMP_WORDS[3]}"
-      arg="${COMP_WORDS[4]}"
+      action="${COMP_WORDS[2]}"
+      arg="${COMP_WORDS[3]}"
       case "${action}" in
         help)
           opts=${_SHELLB_COMMAND_ACTIONS}
@@ -540,7 +608,7 @@ function _shellb_command_compgen() {
           opts=""
           ;;
         *)
-          _shellb_print_wrn "unknown command \"${comp_cur}\""
+          _shellb_print_wrn "unknown command \"${comp_cur}\", words=${COMP_WORDS[*]}"
           opts=""
           ;;
       esac
