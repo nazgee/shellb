@@ -46,8 +46,18 @@ function _shellb_core_remove() {
   target="${1}"
   [ -n "${target}" ] || _shellb_print_err "target can't be empty" || return 1
   [ -e "${target}" ] || _shellb_print_err "target doesn't exist" || return 1
-  _shellb_core_is_path_below_and_owned "${target}" "${_SHELLB_DB}" || _shellb_print_err "target is not below ${_SHELLB_DB}" || return 1
-  rm "${target}" || _shellb_print_err "failed to remove ${target}" || return 1
+  _shellb_core_is_path_below_and_owned "${target}" "${_SHELLB_DB}" || _shellb_print_err "target file ${target} is not below ${_SHELLB_DB}" || return 1
+  rm "${target}" || _shellb_print_err "failed to remove ${target} file" || return 1
+}
+
+function _shellb_core_remove_dir() {
+  _shellb_print_dbg "_shellb_core_remove($*)"
+  local target
+  target="${1}"
+  [ -n "${target}" ] || _shellb_print_err "target can't be empty" || return 1
+  [ -e "${target}" ] || _shellb_print_err "target doesn't exist" || return 1
+  _shellb_core_is_path_below_and_owned "${target}" "${_SHELLB_DB}" || _shellb_print_err "target dir ${target} is not below ${_SHELLB_DB}" || return 1
+  echo rm "${target}" -rf || _shellb_print_err "failed to remove ${target} dir" || return 1
 }
 
 function _shellb_core_get_user_confirmation() {

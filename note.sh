@@ -65,7 +65,7 @@ function shellb_notepad_del() {
 
   [ -f "${target}" ] || _shellb_print_err "notepad del failed, no \"${target}\" notepad" || return 1
   _shellb_core_get_user_confirmation "delete \"${proto_target}\" notepad?" || return 0
-  rm "${target}" || _shellb_print_err "notepad \"${notepad_domainfile}\" del failed, is it accessible?" || return 1
+  _shellb_core_remove "${target}" || _shellb_print_err "notepad \"${notepad_domainfile}\" del failed, is it accessible?" || return 1
   _shellb_print_nfo "\"${proto_target}\" notepad deleted"
 }
 
@@ -73,7 +73,9 @@ function shellb_notepad_delall() {
   _shellb_print_dbg "shellb_notepad_delall($*)"
   _shellb_core_get_user_confirmation "delete all notepads?" || return 0 && _shellb_print_nfo "deleting all notepads"
 
-  rm "${_SHELLB_DB_NOTES:?}"/* -rf
+  # delete all notepads. this is a bit dangerous, but we have a confirmation step above
+  # in case _SHELLB_DB_NOTES is not set, script should exit becase :? will fail
+  _shellb_core_remove_dir "${_SHELLB_DB_NOTES}" || _shellb_print_err "notepad delall failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
   _shellb_print_nfo "all notepads deleted"
 }
 
