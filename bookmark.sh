@@ -27,15 +27,17 @@ function _shellb_bookmarks_calc_absfile() {
 }
 
 function _shellb_bookmark_glob() {
-  _shellb_print_dbg "_shellb_bookmark_glob(${1})"
-  _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${1}" "/" | tr ' ' '\n' | sort
+  _shellb_print_dbg "_shellb_bookmark_glob($*)"
+  local glob
+  glob="${1:-*}"
+  _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${glob}.${_SHELLB_CFG_BOOKMARK_EXT}" "/" | sed "s/.${_SHELLB_CFG_BOOKMARK_EXT}//g" | tr ' ' '\n' | sort
 }
 
 function _shellb_bookmark_get() {
   _shellb_print_dbg "_shellb_bookmark_get(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || return 1
-  cat "$(_shellb_bookmarks_calc_absfile "${1}")" 2> /dev/null
+  cat "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" 2> /dev/null
 }
 
 function _shellb_bookmark_is_alive() {
@@ -73,7 +75,7 @@ function shellb_bookmark_set() {
   [ -e "${bookmark_target}" ] || _shellb_print_err "set bookmark failed, invalid directory (${bookmark_target})" || return 1
 
   # check if we already have a bookmark with this name
-  bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}")"
+  bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}.${_SHELLB_CFG_BOOKMARK_EXT}")"
   if [ -e "${bookmark_file}" ]; then
     # check if the bookmark is the same as the one we want to set
     if (_shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}"); then
@@ -100,9 +102,9 @@ function shellb_bookmark_del() {
   _shellb_print_dbg "shellb_bookmark_del(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
-  [ -e "$(_shellb_bookmarks_calc_absfile "${1}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
+  [ -e "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
   [ -n "${assume_yes}" ] || _shellb_core_get_user_confirmation "delete \"${1}\" bookmark?" || return 0
-  rm "$(_shellb_bookmarks_calc_absfile "${1}")" 2>/dev/null || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  _shellb_core_remove "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
 
@@ -131,7 +133,7 @@ function shellb_bookmark_goto() {
   [ -n "${1}" ] || _shellb_print_err "goto bookmark failed, no bookmark name given" || return 1
 
   # check if given bookmark exists
-  [ -e "$(_shellb_bookmarks_calc_absfile "${1}")" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
+  [ -e "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" ] || _shellb_print_err "goto bookmark failed, unknown bookmark: \"${1}\"" || return 1
 
   # get bookmarked directory
   local target
@@ -173,15 +175,16 @@ function shellb_bookmark_list_short() {
 }
 
 function shellb_bookmark_list_goto() {
-  local list selection target
+local list target bookmarks_count
   # if no bookmarks matched -- exit immediatly
   list=$(shellb_bookmark_list_long "${1}")  || return 1
 
+  bookmarks_count=$(echo "${list}" | wc -l)
   # if we have some bookmarks, let user choose
-  if [[ $(echo "${list}" | wc -l) -gt 1 ]]; then
+  if [[ ${bookmarks_count} -gt 1 ]]; then
     echo "$list"
     _shellb_print_nfo "select bookmark to goto:"
-    read -r selection || return 1
+    selection=$(_shellb_core_get_user_number "${bookmarks_count}") || return 1
   else
     selection="1"
   fi
@@ -191,15 +194,16 @@ function shellb_bookmark_list_goto() {
 }
 
 function shellb_bookmark_list_del() {
-  local list target
+  local list target bookmarks_count
   # if no bookmarks matched -- exit immediatly
   list=$(shellb_bookmark_list_long "${1}")  || return 1
 
+  bookmarks_count=$(echo "${list}" | wc -l)
   # if we have some bookmarks, let user choose
-  if [[ $(echo "${list}" | wc -l) -gt 1 ]]; then
+  if [[ ${bookmarks_count} -gt 1 ]]; then
     echo "$list"
     _shellb_print_nfo "select bookmark to delete:"
-    read -r selection || return 1
+    selection=$(_shellb_core_get_user_number "${bookmarks_count}") || return 1
   else
     selection="1"
   fi
@@ -219,8 +223,9 @@ function shellb_bookmark_list_purge() {
   do
     # delete any bookmark that does not exist
     if ! _shellb_bookmark_is_alive "${bookmark}"; then
+      # before deleting, print a header
       [ ${some_bookmarks_purged} -eq 0 ] && _shellb_print_nfo "purged \"dead\" bookmarks:"
-      # run in non-interactive mode
+      # delete in non-interactive mode (no confirmation needed)
       shellb_bookmark_del "${bookmark}" "1"
       some_bookmarks_purged=1
     fi
