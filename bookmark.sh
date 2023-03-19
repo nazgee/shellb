@@ -22,10 +22,12 @@ _SHELLB_DB_BOOKMARKS="${_SHELLB_DB}/bookmarks"
 # bookmark functions
 ###############################################
 function _shellb_bookmarks_calc_absfile() {
+  _shellb_print_dbg "_shellb_bookmarks_calc_absfile(${1})"
   _shellb_core_calc_domain_from_user "/${1}" "${_SHELLB_DB_BOOKMARKS}"
 }
 
 function _shellb_bookmark_glob() {
+  _shellb_print_dbg "_shellb_bookmark_glob(${1})"
   _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${1}" "/" | tr ' ' '\n' | sort
 }
 
@@ -44,6 +46,7 @@ function _shellb_bookmark_is_alive() {
 }
 
 function _shellb_bookmark_print_long() {
+  _shellb_print_dbg "_shellb_bookmark_print_long(${1})"
   # check if target is "alive" or "dangling"
   if _shellb_bookmark_is_alive "$1"; then
     printf "${_SHELLB_CFG_SYMBOL_CHECK} | %-18s | %s\n" "${1}" "${2}"
@@ -150,7 +153,7 @@ function shellb_bookmark_list_long() {
   local i=1
   for bookmark in "${matched_bookmarks[@]}"; do
     if [[ $(((i-1) % 2)) -lt 1 ]]; then
-        printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %ss${_SHELLB_COLOR_NONE}\n" "${i}" "$(shellb_bookmark_get_long "${bookmark}")"
+        printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %s${_SHELLB_COLOR_NONE}\n" "${i}" "$(shellb_bookmark_get_long "${bookmark}")"
     else
       printf "%3s) | %s\n" "${i}" "$(shellb_bookmark_get_long "${bookmark}")"
     fi

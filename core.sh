@@ -75,7 +75,7 @@ function _shellb_core_get_user_number() {
   local -i choices
   choices="${1}"
   read -r selection || return 1
-  [ "${selection}" -gt 0 ] && [ "${selection}" -le "${choices}" ] || _shellb_print_err "wrong aselection" || return 1
+  [ "${selection}" -gt 0 ] && [ "${selection}" -le "${choices}" ] || _shellb_print_err "unknown ID selected" || return 1
   echo "${selection}"
 }
 
@@ -258,6 +258,7 @@ function _shellb_core_string_trim() {
 # Fails only if domain is not below _SHELLB_DB
 # ${1} - user dir or file
 # ${2} - shellb domain directory
+# FIXME: This function is slow. Check it's usage and optimize it
 function _shellb_core_calc_domain_from_user() {
   _shellb_print_dbg "_shellb_core_calc_domain_from_user($*)"
   local file_user domain

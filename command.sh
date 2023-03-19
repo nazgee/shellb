@@ -34,6 +34,16 @@ function _shellb_command_get_resource_proto_from_abs() {
   _shellb_core_calc_domainrel_from_abs "${1}" "${_SHELLB_DB_COMMANDS}"
 }
 
+# Translate /usr/bar/foo._SHELLB_CFG_COMMAND_EXT to /usr/bar/foo._SHELLB_CFG_COMMAND_TAG_EXT
+# ${1} - absolute path to command file
+function _shellb_command_get_tagfile_from_commandfile() {
+  _shellb_print_dbg "_shellb_command_get_tagfile_from_commandfile($*)"
+  local cmd_file uuid_file
+  cmd_file="${1}"
+  uuid_file="$(basename "${cmd_file}")"
+  uuid_file="${uuid_file%.*}"
+  echo "${cmd_file%/*}/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
+}
 
 # Save given command for a given user dir.
 # ${1} - command string
@@ -99,26 +109,17 @@ function _shellb_command_selection_del() {
   _shellb_print_dbg "_shellb_command_selection_del($*)"
   local -a files
   files=("${@}")
-  local index chosen_command chosen_file
+  local index chosen_command chosen_cmdfile chosen_tagfile
 
   _shellb_print_nfo "select command to delete:"
   index=$(_shellb_core_get_user_number "${#files[@]}") || return 1
-  chosen_file="${files[${index}-1]}"
-  chosen_command="$(cat "${chosen_file}")"
+  chosen_cmdfile="${files[${index}-1]}"
+  chosen_tagfile="$(_shellb_command_get_tagfile_from_commandfile "${chosen_cmdfile}")"
+  chosen_command="$(cat "${chosen_cmdfile}")"
 
-  _shellb_print_nfo "command file: \"$(_shellb_command_get_resource_proto_from_abs "${chosen_file}")\""
+  _shellb_print_nfo "command file: \"$(_shellb_command_get_resource_proto_from_abs "${chosen_cmdfile}")\""
   _shellb_core_get_user_confirmation "delete command \"${chosen_command}\"?" || return 0
-  _shellb_core_remove "${chosen_file}" && _shellb_print_nfo "command deleted: ${chosen_command}"
-}
-
-# ${1} - absolute path to command file
-_function_get_tagfile_from_commandfile() {
-  _shellb_print_dbg "_function_get_tagfile_from_commandfile($*)"
-  local cmd_file uuid_file
-  cmd_file="${1}"
-  uuid_file="$(basename "${cmd_file}")"
-  uuid_file="${uuid_file%.*}"
-  echo "${cmd_file%/*}/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
+  _shellb_core_remove "${chosen_cmdfile}" && _shellb_core_remove "${chosen_tagfile}" && _shellb_print_nfo "command deleted: ${chosen_command}"
 }
 
 # Ask user to select a number from 1 to size of given array
@@ -171,13 +172,10 @@ function shellb_command_save_interactive() {
 }
 
 function _shellb_command_print_line() {
-  local i file
+  local i file tag
   i="${1}"
   file="${2}"
-
-  file="$(basename "${2}")"
-  file="${file%.*}"
-  tag="$(cat "$(dirname "${2}")/${file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
+  tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")")
 
 #  if (( i % 2 == 1 )); then
 #    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")" | sed -e 's@\([.]*|\)\([^|]*\)@\1\n\2@' | sed -e 's@\([^|]*\)\([.]*\)@\1\n\2@' | sed -e '3s/ /\./g ; 3s/^\./ /; 3s/\.$/ /; ' | tr -d '\n' | sed '$s/$/\n/'
@@ -186,9 +184,9 @@ function _shellb_command_print_line() {
 #  fi
 
   if [[ $(((i-1) % 2)) -lt 1 ]]; then
-    printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %20s | %s${_SHELLB_COLOR_NONE}\n" "${i}" "${tag}" "$(cat "${2}")"
+    printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %20s | %s${_SHELLB_COLOR_NONE}\n" "${i}" "${tag}" "$(cat "${file}")"
   else
-    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")"
+    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${file}")"
   fi
 
 }
@@ -260,8 +258,7 @@ function shellb_command_list() {
   shift
 
   local tag
-  [[ "${2:0:1}" = "@" ]] && tag="${2:1}" && shift
-  [[ "${1:0:1}" = "@" ]] && tag="${1:1}" && shift
+  [[ "${1:0:1}" = "@" ]] && { tag="${1:1}" ; shift; } || tag="${2:1}"
   _shellb_command_list_flat "${1}" shellb_command_list_files || return 1
 
   # print only commands that match the tag
@@ -269,7 +266,7 @@ function shellb_command_list() {
     local -a shellb_command_list_files_tagged
     for file in "${shellb_command_list_files[@]}"; do
       local tagfile
-      tagfile=$(_function_get_tagfile_from_commandfile "${file}")
+      tagfile=$(_shellb_command_get_tagfile_from_commandfile "${file}")
       if grep -qw "${tag}" "${tagfile}" 2>/dev/null; then
         shellb_command_list_files_tagged+=("${file}")
       fi
@@ -293,7 +290,7 @@ function shellb_command_list_exec() {
   # shellcheck disable=SC2034
   local -a shellb_command_list_exec_files
   # get list of commands
-  shellb_command_list shellb_command_list_exec_files "$@"|| return 1
+  shellb_command_list shellb_command_list_exec_files "$@" || return 1
   _shellb_command_selection_exec "${shellb_command_list_exec_files[@]}"
 }
 
@@ -335,8 +332,7 @@ function shellb_command_find() {
   shift
 
   local tag
-  [[ "${2:0:1}" = "@" ]] && tag="${2:1}" && shift
-  [[ "${1:0:1}" = "@" ]] && tag="${1:1}" && shift
+  [[ "${1:0:1}" = "@" ]] && { tag="${1:1}" ; shift; } || tag="${2:1}"
   _shellb_command_list_recursive "${1}" shellb_command_find_files || return 1
 
   # print only commands that match the tag
@@ -344,7 +340,7 @@ function shellb_command_find() {
     local -a shellb_command_find_files_tagged
     for file in "${shellb_command_find_files[@]}"; do
       local tagfile
-      tagfile=$(_function_get_tagfile_from_commandfile "${file}")
+      tagfile=$(_shellb_command_get_tagfile_from_commandfile "${file}")
       if grep -qw "${tag}" "${tagfile}" 2>/dev/null; then
         shellb_command_find_files_tagged+=("${file}")
       fi
