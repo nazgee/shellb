@@ -97,7 +97,7 @@ function _shellb_notepad_list_print_menu() {
   done
 }
 
-# Lists notes belo given directory, or returns 1 if none found or given dir is invalid
+# Lists notes below given directory, or returns 1 if none found or given dir is invalid
 # $1 - optional directory to list notes below (default: /, will find all notes)
 function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
@@ -119,15 +119,16 @@ function shellb_notepad_list() {
 
 function shellb_notepad_list_edit() {
   _shellb_print_dbg "shellb_notepad_list_edit($*)"
-  local list target selection user_dir
+  local list target selection user_dir notes_count
   user_dir="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
 
   if [ -d "${user_dir}" ]; then
     list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
-    if [ "$(echo "${list}" | wc -l)" -gt 2 ]; then
+    notes_count=$(($(echo "${list}" | wc -l) - 1))
+    if [ "${notes_count}" -gt 2 ]; then
       _shellb_print_nfo "select notepad to edit:"
-      read -r selection || return 1
+      selection=$(_shellb_core_get_user_number "${notes_count}") || return 1
     else
       selection=1
     fi
@@ -140,14 +141,15 @@ function shellb_notepad_list_edit() {
 
 function shellb_notepad_list_show() {
   _shellb_print_dbg "shellb_notepad_list_show($*)"
-  local list target selection user_dir
+  local list target selection user_dir notes_count
   user_dir=$(realpath -qm "${1:-/}" 2>/dev/null) || return 1
 
   if [ -d "${user_dir}" ]; then
     list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
+    notes_count=$(($(echo "${list}" | wc -l) - 1))
     _shellb_print_nfo "select notepad to show:"
-    read -r selection || return 1
+    selection=$(_shellb_core_get_user_number "${notes_count}") || return 1
     target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   else
     target="${user_dir}"
@@ -158,14 +160,15 @@ function shellb_notepad_list_show() {
 # $1 - notepad or direcotry to delete. If it's a directory, ask user to select a notepad
 function shellb_notepad_list_del() {
   _shellb_print_dbg "shellb_notepad_list_del($*)"
-  local list target selection user_dir
+  local list target selection user_dir notes_count
   user_dir="${1:-/}"
 
   if [ -d "${user_dir}" ]; then
     list=$(shellb_notepad_list "${user_dir}") || return 1
     echo "${list}"
+    notes_count=$(($(echo "${list}" | wc -l) - 1))
     _shellb_print_nfo "select notepad to delete:"
-    read -r selection || return 1
+    selection=$(_shellb_core_get_user_number "${notes_count}") || return 1
     target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
   else
     target="${user_dir}"
