@@ -175,7 +175,7 @@ function _shellb_command_print_line() {
   local i file tag
   i="${1}"
   file="${2}"
-  tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")")
+  tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
 
 #  if (( i % 2 == 1 )); then
 #    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")" | sed -e 's@\([.]*|\)\([^|]*\)@\1\n\2@' | sed -e 's@\([^|]*\)\([.]*\)@\1\n\2@' | sed -e '3s/ /\./g ; 3s/^\./ /; 3s/\.$/ /; ' | tr -d '\n' | sed '$s/$/\n/'
