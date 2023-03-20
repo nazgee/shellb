@@ -12,7 +12,7 @@ fi
 
 if [[ -n "${SHELB_DEVEL_DIR}" ]]; then
   # shellcheck source=core.sh
-  source core.sh
+  source core.sh 2>/dev/null
 fi
 
 _SHELLB_DB_BOOKMARKS="${_SHELLB_DB}/bookmarks"

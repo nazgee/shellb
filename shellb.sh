@@ -79,6 +79,7 @@ _SHELLB_SOURCE_LOCATION="${BASH_SOURCE[0]}"
   || echo "${_SHELLB_CFG_RC_DEFAULT}" > "${_SHELLB_RC}"
 
 # install aliases
+# shellcheck source=~/.shellbrc
 source "${_SHELLB_RC}"
 
 ###############################################
@@ -120,6 +121,7 @@ function _shellb_reload-config_compgen() {
 }
 
 function _shellb_reload-config_action() {
+  # shellcheck source=./shellb.sh
   source "${_SHELLB_SOURCE_LOCATION}"
   _shellb_print_nfo "loaded (${_SHELLB_SOURCE_LOCATION} + ${_SHELLB_RC})"
 }
@@ -173,24 +175,18 @@ function _shellb() {
 ###############################################
 # modules installation
 ###############################################
-if [[ -n "${SHELB_DEVEL_DIR}" ]]; then
-  # shellcheck source=core.sh
-  source core.sh
-  # shellcheck source=bookmark.sh
-  source bookmark.sh
-  # shellcheck source=note.sh
-  source note.sh
-  # shellcheck source=command.sh
-  source command.sh
-else
-  # shellcheck source=./core.sh
-  source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/core.sh"
-  
-  for module in "${_SHELLB_MODULES[@]}"; do
-    _shellb_print_dbg "load ${module}"
-    source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/${module}.sh"
-  done
-fi
+# shellcheck source=./core.sh
+source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/core.sh"
+for module in "${_SHELLB_MODULES[@]}"; do
+  _shellb_print_dbg "load ${module}"
+  # shellcheck source=./bookmark.sh
+  # shellcheck source=./note.sh
+  # shellcheck source=./command.sh
+  source "$(dirname "${_SHELLB_SOURCE_LOCATION}")/${module}.sh"
+  _shellb_print_dbg "loaded ${module}"
+done
+
+
 
 ###############################################
 # completions installation
@@ -203,9 +199,12 @@ function shellb_completions_install() {
     complete -F _complete_alias "${alias}"
   done
 
-  complete -F _shellb                                   shellb
+  complete -F _shellb shellb
 }
 
 # install completions when we're sourced
-source "$(dirname ${_SHELLB_SOURCE_LOCATION})/complete_alias"
+# shellcheck source=./complete_alias
+_shellb_print_dbg "load complete_alias"
+source "$(dirname "${_SHELLB_SOURCE_LOCATION})")/complete_alias"
+_shellb_print_dbg "register completions"
 shellb_completions_install
