@@ -153,11 +153,37 @@ function shellb_bookmark_get_long() {
   _shellb_bookmark_print_long "${1}" "${target}"
 }
 
+last_bookmark_ref=""
+function _shellb_bookmark_condensed_target() {
+  local bookmark="${1}"
+  local target="${2}"
+  local -n bookmarks="${3}" # Use -n to make it a reference to the original array
+
+  for other_bookmark in "${bookmarks[@]}"; do
+    [ "${other_bookmark}" != "${bookmark}" ] || break
+
+    local bookmark_target
+    bookmark_target=$(shellb_bookmark_get_short "${other_bookmark}") || return 1
+
+    if [[ "${target}" == "${bookmark_target}"* ]]; then
+      local suffix
+      suffix="${target#${bookmark_target}}"
+      echo "<@${other_bookmark}>${suffix}"
+      return 0
+    fi
+  done
+
+  echo "${target}"
+}
+
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long($*)"
 
   # fetch all bookmarks or only those starting with given glob expression
   mapfile -t matched_bookmarks < <(_shellb_bookmark_glob "${1}")
+
+  local condense_output
+  condense_output="${2}"
 
   # check any bookmarks were found
   [ ${#matched_bookmarks[@]} -gt 0 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
@@ -170,17 +196,19 @@ function shellb_bookmark_list_long() {
   (( 4 > max_length )) && max_length=4
 
 
-  printf "LIVE | %${max_length}s | IDX | TARGET\n" "NAME"
+  printf "LIVE | %-${max_length}s | IDX | TARGET\n" "NAME"
   # print the bookmarks
   local i=1
   for bookmark in "${matched_bookmarks[@]}"; do
     local target
     target=$(shellb_bookmark_get_short "${bookmark}") || return 1
+    local condensed_target
+    condensed_target=$(_shellb_bookmark_condensed_target "${bookmark}" "${target}" "matched_bookmarks")
 
     if _shellb_bookmark_is_alive "${bookmark}"; then
-      printf "  ${_SHELLB_CFG_SYMBOL_CHECK}  | %${max_length}s | %3s | %s\n" "${bookmark}" "${i}" "${target}"
+      printf "  ${_SHELLB_CFG_SYMBOL_CHECK}  | %-${max_length}s | %3s | %s\n" "${bookmark}" "${i}" "${condensed_target}"
     else
-      printf "  ${_SHELLB_CFG_SYMBOL_CROSS}  | %${max_length}s | %3s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${bookmark}" "${i}" "${target}"
+      printf "  ${_SHELLB_CFG_SYMBOL_CROSS}  | %-${max_length}s | %3s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${bookmark}" "${i}" "${condensed_target}"
     fi
 
     i=$((i+1))
