@@ -187,30 +187,101 @@ function _shellb_command_print_line() {
   local i file tag
   i="${1}"
   file="${2}"
+  tag_column_width="${3}"
   [ -n "${i}" ] || { _shellb_print_err "line number not given" ; return 1 ; }
   [ -n "${file}" ] || { _shellb_print_err "command file not given" ; return 1 ; }
   tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
 
-#  if (( i % 2 == 1 )); then
-#    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")" | sed -e 's@\([.]*|\)\([^|]*\)@\1\n\2@' | sed -e 's@\([^|]*\)\([.]*\)@\1\n\2@' | sed -e '3s/ /\./g ; 3s/^\./ /; 3s/\.$/ /; ' | tr -d '\n' | sed '$s/$/\n/'
-#  else
-#    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${2}")" | sed -e 's@\([.]*|\)\([^|]*\)@\1\n\2@' | sed -e 's@\([^|]*\)\([.]*\)@\1\n\2@' | sed -e '3s/ /_/g ; 3s/^_/ /; 3s/_$/ /; ' | tr -d '\n' | sed '$s/$/\n/'
-#  fi
+  local user_dir
+  user_dir="$(dirname "${file}")"
+  user_dir=$(_shellb_core_calc_user_from_domain "${user_dir}" "${_SHELLB_DB_COMMANDS}")
 
-  if [[ $(((i-1) % 2)) -lt 1 ]]; then
-    printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %20s | %s${_SHELLB_COLOR_NONE}\n" "${i}" "${tag}" "$(cat "${file}")"
-  else
-    printf "%3s) | %20s | %s\n" "${i}" "${tag}" "$(cat "${file}")"
-  fi
+  local bookmarks
+  bookmarks=$(_shellb_get_userdir_bookmarks "${user_dir}" | tr '\n' ' ')
 
+  printf "%20s| %${tag_column_width}s | %3s | %s\n" "${bookmarks}" "${tag}" "${i}" "$(cat "${file}")"
+}
+
+# _shellb_command_sort_by_contents
+# Sorts an array of files by their contents while preserving duplicates.
+# $1 - array of files to sort
+# Returns:
+#   A newline-separated string containing the sorted file names
+function _shellb_command_sort_by_contents() {
+  local files_to_sort_by_content=( "$@" )
+  local delimiter=$'\x1F'
+
+  # Create an associative array to store filename and file content pairs
+  declare -A filename_file_content_map
+
+  # Populate the filename and file content map
+  for file in "${files_to_sort_by_content[@]}"; do
+    file_content="$(cat "${file}")"
+    filename_file_content_map["${file}"]="${file_content}"
+  done
+
+  # Sort the array based on file content
+  mapfile -t sorted_files < <(printf "%s\n" "${!filename_file_content_map[@]}" | while IFS= read -r file; do
+    printf "%s%s%s\n" "${filename_file_content_map["$file"]}" "$delimiter" "$file"
+  done | sort -t"$delimiter" -k1,1 | cut -d"$delimiter" -f2)
+
+  # Return the sorted file names as a newline-separated string
+  printf "%s\n" "${sorted_files[@]}"
+}
+
+
+# _shellb_command_sort_by_contents_and_deduplicate
+# Sorts an array of files by their contents and removes duplicates.
+# $1 - array of files to sort and deduplicate
+# Returns:
+#   A newline-separated string containing the sorted and deduplicated file names
+function _shellb_command_sort_by_contents_and_deduplicate() {
+  local files_to_sort_by_content=( "$@" )
+  local i=0
+
+  # Create an associative array to store file content and filename
+  # This will alias the file content to the file name
+  # which causes deduplication of the files with same content
+  declare -A file_content_map
+  for file in "${files_to_sort_by_content[@]}"; do
+    file_content="$(cat "${file}")"
+    file_content_map["${file_content}"]="${file}"
+  done
+
+  # Sort the array based on file content
+  mapfile -t sorted_file_content < <(printf "%s\n" "${!file_content_map[@]}" | sort)
+
+  # Create an array to store the sorted file names
+  local -a sorted_file_names=()
+
+  # Populate the sorted file names array using the sorted file content
+  for content in "${sorted_file_content[@]}"; do
+    sorted_file_names+=("${file_content_map["$content"]}")
+  done
+
+  # Return the sorted file names as a newline-separated string
+  printf "%s\n" "${sorted_file_names[@]}"
 }
 
 function _shellb_command_print_lines() {
   local -n shellb_command_print_lines_files=$1
   local i=0
+
+  # calculate max length of tags
+  local max_length=0
+  for cmd_file in "${shellb_command_print_lines_files[@]}"; do
+    local tag_file tag_len
+    tag_file="$(_shellb_command_get_tagfile_from_commandfile "${cmd_file}")"
+    tag_len="$(wc -c 2>/dev/null < "${tag_file}" )" || continue
+    (( tag_len > max_length )) && max_length=${tag_len}
+  done
+  (( 4 > max_length )) && max_length=4
+
+  # print lines
+  printf "%19s | %${max_length}s | IDX | CMD\n" "LOCATION" "TAGS"
   for file in "${shellb_command_print_lines_files[@]}"; do
     i=$((i+1))
-    _shellb_command_print_line "${i}" "${file}"
+    _shellb_command_print_line "${i}" "${file}" "${max_length}"
   done
 }
 
@@ -261,9 +332,9 @@ function _shellb_command_list_recursive() {
 ###############################################
 
 # Lists commands in given directory, or returns 1 if none found or given dir is invalid
-# $1 - user directory to list command for (default: current dir)
-# $2 - optional, nameref array variable under which shellb command will be saved
-# $3 - optional, nameref array variable under which commands will be saved
+# $1 - nameref array variable under which shellb command will be saved
+# $2 - optional, tag or user directory to list command for (default: current dir)
+# $2 - optional, tag or user directory to list command for (default: current dir)
 function shellb_command_list() {
   _shellb_print_dbg "shellb_command_list($*)"
 
@@ -293,6 +364,8 @@ function shellb_command_list() {
     _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
   fi
 
+  # TODO add param to show list with duplicates -- this is useful when we want to delete command
+  mapfile -t shellb_command_list_files< <(_shellb_command_sort_by_contents_and_deduplicate "${shellb_command_list_files[@]}")
   _shellb_command_print_lines shellb_command_list_files
 }
 
@@ -338,7 +411,9 @@ function shellb_command_list_del() {
 
 # Lists commands below given directory; return 1 if none found or given dir is invalid
 # When given a tag, only commands with that tag will be returned
-# $1 - user directory to list command for (default: current dir)
+# $1 - nameref array variable under which shellb command will be saved
+# $2 - optional, tag or user directory to list command for (default: current dir)
+# $2 - optional, tag or user directory to list command for (default: current dir)
 function shellb_command_find() {
   _shellb_print_dbg "shellb_command_find($*)"
 
@@ -368,6 +443,8 @@ function shellb_command_find() {
   fi
 
   # print commands
+  # TODO add param to show list with duplicates -- this is useful when we want to delete command
+  mapfile -t shellb_command_find_files< <(_shellb_command_sort_by_contents_and_deduplicate "${shellb_command_find_files[@]}")
   _shellb_command_print_lines shellb_command_find_files
 }
 
@@ -380,7 +457,7 @@ function shellb_command_find_exec() {
   local shellb_command_find_exec_files
 
   # get list of commands
-  shellb_command_find shellb_command_find_exec_files "$@"|| return 1
+  shellb_command_find shellb_command_find_exec_files "$@" || return 1
   _shellb_command_selection_exec "${shellb_command_find_exec_files[@]}"
 }
 
@@ -423,10 +500,11 @@ function shellb_command_purge() {
 
     [ ${#files_to_purge[@]} -eq 0 ] && _shellb_print_nfo "purged \"dead\" commands:"
     files_to_purge+=("${cmd_file}")
-    _shellb_command_print_line "${#files_to_purge[@]}" "${cmd_file}"
   done
 
   [ ${#files_to_purge[@]} -eq 0 ] && { _shellb_print_nfo "no commands purged (all commands were \"alive\")" ; return 0; }
+
+  _shellb_command_print_lines files_to_purge
 
   _shellb_core_get_user_confirmation "delete ${#files_to_purge[@]} commands saved for inaccessible dirs?" || return 0
   for cmd_file in "${files_to_purge[@]}"; do

@@ -50,6 +50,19 @@ function _shellb_bookmark_is_alive() {
   [ -d "$(_shellb_bookmark_get "${1}")" ]
 }
 
+function _shellb_get_userdir_bookmarks() {
+  _shellb_print_dbg "_shellb_is_userdir_bookmarked($*)"
+  local userdir
+  userdir="${1}"
+  [ -n "${userdir}" ] || { _shellb_print_err "user_dir not given"; return 1 ; }
+  userdir=$(realpath -mq "${userdir}")
+  for bookmark_file in $(_shellb_core_domain_files_find_abs_matching_whole_line "${_SHELLB_DB_BOOKMARKS}" "*.${_SHELLB_CFG_BOOKMARK_EXT}" "/" "${userdir}") ; do
+    printf "%s\n" "$(basename "${bookmark_file%".${_SHELLB_CFG_BOOKMARK_EXT}"}")"
+  done
+
+  return 0
+}
+
 function shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
   local bookmark_name="${1}"
@@ -149,7 +162,7 @@ function shellb_bookmark_list_long() {
   # check any bookmarks were found
   [ ${#matched_bookmarks[@]} -gt 0 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
 
-  # Calculate the longest bookmark name
+  # calculate max length of bookmark name
   local max_length=0
   for bookmark in "${matched_bookmarks[@]}"; do
     (( ${#bookmark} > max_length )) && max_length=${#bookmark}
