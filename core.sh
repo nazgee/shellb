@@ -238,9 +238,7 @@ function _shellb_core_is_path_below() {
   domain=$(realpath -m "${domain}")
 
   # make sure that path and dir are not the same
-  if [[ "$path" == "$domain" ]]; then
-    return 1
-  fi
+  [[ "$path" == "$domain" ]] && return 1
 
   # make sure that path is below dir
   [[ "${path}" == "${domain}"* ]] || return 1
@@ -339,11 +337,8 @@ function _shellb_core_is_same_as_file() {
   local content file
   content="${1}"
   file="${2}"
-  if (echo "${content}" | diff -q - "${file}" > /dev/null) ; then
-    return 0
-  else
-    return 1
-  fi
+  echo "${content}" | cmp -s - "${file}" > /dev/null
+  return $?
 }
 
 function _shellb_core_completion_to_dir() {
