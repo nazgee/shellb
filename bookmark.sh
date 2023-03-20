@@ -37,96 +37,58 @@ function _shellb_bookmark_glob() {
 }
 
 function _shellb_bookmark_get() {
-  _shellb_print_dbg "_shellb_bookmark_get(${1})"
+  _shellb_print_dbg "_shellb_bookmark_get($*)"
   # check if bookmark name is given
   [ -n "${1}" ] || return 1
   cat "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" 2> /dev/null
 }
 
 function _shellb_bookmark_is_alive() {
-  _shellb_print_dbg "_shellb_bookmark_is_alive(${1})"
+  _shellb_print_dbg "_shellb_bookmark_is_alive($*)"
   # check if bookmark name is given
   [ -n "${1}" ] || return 1
   [ -d "$(_shellb_bookmark_get "${1}")" ]
 }
 
-function _shellb_bookmark_print_long() {
-  _shellb_print_dbg "_shellb_bookmark_print_long(${1})"
-  # check if target is "alive" or "dangling"
-  if _shellb_bookmark_is_alive "$1"; then
-    printf "${_SHELLB_CFG_SYMBOL_CHECK} | %-18s | %s\n" "${1}" "${2}"
-  else
-    printf "${_SHELLB_CFG_SYMBOL_CROSS} | %-18s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
-  fi
-}
-
 function shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
-  local bookmark_target bookmark_name bookmark_file
-  bookmark_name="${1}"
+  local bookmark_name="${1}"
+  local bookmark_target="${2:-$(pwd)}"
+  local bookmark_file
 
-  # check if bookmark name is given
-  [ -n "${bookmark_name}" ] || _shellb_print_err "set bookmark failed, no bookmark name given" || return 1
-
-  # if second arg is not given, bookmark current directory
-  bookmark_target="${2:-$(pwd)}"
-
-  # translate relative paths to absolute paths
+  # Validate input and check for existing bookmarks
+  [ -n "${bookmark_name}" ] || { _shellb_print_err "set bookmark failed, no bookmark name given"; return 1; }
   bookmark_target=$(realpath "${bookmark_target}")
+  [ -e "${bookmark_target}" ] || { _shellb_print_err "set bookmark failed, invalid directory (${bookmark_target})"; return 1; }
 
-  # sanity check if bookmark directory exists
-  [ -e "${bookmark_target}" ] || _shellb_print_err "set bookmark failed, invalid directory (${bookmark_target})" || return 1
-
-  # check if we already have a bookmark with this name
   bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}.${_SHELLB_CFG_BOOKMARK_EXT}")"
-  if [ -e "${bookmark_file}" ]; then
-    # check if the bookmark is the same as the one we want to set
-    if (_shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}"); then
-      :
-    else
-      _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name}")\" exists, overwrite?" || return 0
-    fi
+  if [ -e "${bookmark_file}" ] && ! _shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}"; then
+    _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name}")\" exists, change it to \"${bookmark_target}\"?" || return 0
   fi
 
-  # build the bookmark file with the contents "$CD directory_path"
-  echo "${bookmark_target}" > "${bookmark_file}" || _shellb_print_err "set bookmark failed, saving bookmark failed" || return 1
+  # Save the bookmark
+  echo "${bookmark_target}" > "${bookmark_file}" || { _shellb_print_err "set bookmark failed, saving bookmark failed"; return 1; }
 
   _shellb_print_nfo "bookmark set:"
   shellb_bookmark_get_long "${1}"
 }
 
+
 # $1 name of bookmark to delete
 # $2 if given, don't ask for confirmation
 function shellb_bookmark_del() {
+  _shellb_print_dbg "shellb_bookmark_del($*)"
+
   local bookmark_name assume_yes
   bookmark_name="${1}"
   assume_yes="${2}"
 
-  _shellb_print_dbg "shellb_bookmark_del(${1})"
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
   [ -e "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
   [ -n "${assume_yes}" ] || _shellb_core_get_user_confirmation "delete \"${1}\" bookmark?" || return 0
   _shellb_core_remove "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
-}
-
-function shellb_bookmark_get_short() {
-  _shellb_print_dbg "shellb_bookmark_get_short(${1})"
-
-  # check if bookmark name is given
-  [ -n "${1}" ] || _shellb_print_err "get bookmark failed, no bookmark name given" || return 1
-  # print the bookmark name or display an error message
-  _shellb_bookmark_get "${1}" || _shellb_print_err "get bookmark failed, unknown bookmark" || return 1
-}
-
-function shellb_bookmark_get_long() {
-  _shellb_print_dbg "shellb_bookmark_get_long(${1})"
-
-  # check if bookmark is known, and save it in target
-  local target
-  target=$(shellb_bookmark_get_short "$1") || return 1 # error message already printed
-  _shellb_bookmark_print_long "${1}" "${target}"
 }
 
 function shellb_bookmark_goto() {
@@ -146,22 +108,68 @@ function shellb_bookmark_goto() {
   cd "${target}" || _shellb_print_err "goto bookmark failed, bookmark to dangling directory or no permissions to enter it" || return 1
 }
 
+function shellb_bookmark_get_short() {
+  _shellb_print_dbg "shellb_bookmark_get_short(${1})"
+
+  # check if bookmark name is given
+  [ -n "${1}" ] || _shellb_print_err "get bookmark failed, no bookmark name given" || return 1
+  # print the bookmark name or display an error message
+  _shellb_bookmark_get "${1}" || _shellb_print_err "get bookmark failed, unknown bookmark" || return 1
+}
+
+# Print a single line of bookmark information
+# $1 name of bookmark
+# $2 target of bookmark
+# $3 bookmark name column width
+function _shellb_bookmark_print_long() {
+  _shellb_print_dbg "_shellb_bookmark_print_long($*)"
+  local column_width="$3"
+  if _shellb_bookmark_is_alive "$1"; then
+    printf "${_SHELLB_CFG_SYMBOL_CHECK} | %${column_width}s | %s\n" "${1}" "${2}"
+  else
+    printf "${_SHELLB_CFG_SYMBOL_CROSS} | %${column_width}s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
+  fi
+}
+
+function shellb_bookmark_get_long() {
+  _shellb_print_dbg "shellb_bookmark_get_long(${1})"
+
+  # check if bookmark is known, and save it in target
+  local target
+  target=$(shellb_bookmark_get_short "$1") || return 1 # error message already printed
+  _shellb_bookmark_print_long "${1}" "${target}"
+}
+
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long($*)"
 
   # fetch all bookmarks or only those starting with given glob expression
   mapfile -t matched_bookmarks < <(_shellb_bookmark_glob "${1}")
+
   # check any bookmarks were found
   [ ${#matched_bookmarks[@]} -gt 0 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
 
+  # Calculate the longest bookmark name
+  local max_length=0
+  for bookmark in "${matched_bookmarks[@]}"; do
+    (( ${#bookmark} > max_length )) && max_length=${#bookmark}
+  done
+  (( 4 > max_length )) && max_length=4
+
+
+  printf "LIVE | %${max_length}s | IDX | TARGET\n" "NAME"
   # print the bookmarks
   local i=1
   for bookmark in "${matched_bookmarks[@]}"; do
-    if [[ $(((i-1) % 2)) -lt 1 ]]; then
-      printf "${_SHELLB_CFG_COLOR_ROW}%3s) | %s${_SHELLB_COLOR_NONE}\n" "${i}" "$(shellb_bookmark_get_long "${bookmark}")"
+    local target
+    target=$(shellb_bookmark_get_short "${bookmark}") || return 1
+
+    if _shellb_bookmark_is_alive "${bookmark}"; then
+      printf "  ${_SHELLB_CFG_SYMBOL_CHECK}  | %${max_length}s | %3s | %s\n" "${bookmark}" "${i}" "${target}"
     else
-      printf "%3s) | %s\n" "${i}" "$(shellb_bookmark_get_long "${bookmark}")"
+      printf "  ${_SHELLB_CFG_SYMBOL_CROSS}  | %${max_length}s | %3s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${bookmark}" "${i}" "${target}"
     fi
+
     i=$((i+1))
   done
 }
@@ -184,14 +192,14 @@ local list target bookmarks_count
 
   bookmarks_count=$(echo "${list}" | wc -l)
   # if we have some bookmarks, let user choose
-  if [[ ${bookmarks_count} -gt 1 ]]; then
+  if [[ ${bookmarks_count} -gt 2 ]]; then
     echo "$list"
     _shellb_print_nfo "select bookmark to goto:"
     selection=$(_shellb_core_get_user_number "${bookmarks_count}") || return 1
   else
     selection="1"
   fi
-  target=$(echo "${list}" | _shellb_core_filter_row "${selection}" | _shellb_core_filter_column "3")
+  target=$(echo "${list}" | _shellb_core_filter_row "$(("${selection}" + 1))" | _shellb_core_filter_column "2")
 
   shellb_bookmark_goto "$(_shellb_core_string_trim "${target}")"
 }
@@ -203,14 +211,14 @@ function shellb_bookmark_list_del() {
 
   bookmarks_count=$(echo "${list}" | wc -l)
   # if we have some bookmarks, let user choose
-  if [[ ${bookmarks_count} -gt 1 ]]; then
+  if [[ ${bookmarks_count} -gt 2 ]]; then
     echo "$list"
     _shellb_print_nfo "select bookmark to delete:"
     selection=$(_shellb_core_get_user_number "${bookmarks_count}") || return 1
   else
     selection="1"
   fi
-  target=$(echo "${list}" | _shellb_core_filter_row "${selection}" | _shellb_core_filter_column "3")
+  target=$(echo "${list}" | _shellb_core_filter_row "$(("${selection}" + 1))" | _shellb_core_filter_column "2")
 
   shellb_bookmark_del "$(_shellb_core_string_trim "${target}")"
 }
@@ -312,3 +320,4 @@ function _shellb_bookmark_compgen() {
 
   COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 }
+
