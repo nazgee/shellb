@@ -40,7 +40,7 @@ function _shellb_command_get_tagfile_from_commandfile() {
   _shellb_print_dbg "_shellb_command_get_tagfile_from_commandfile($*)"
   local cmd_file uuid_file
   cmd_file="${1}"
-  [ -n "${cmd_file}" ] || _shellb_print_err "cmd_file not given" || return 1
+  [ -n "${cmd_file}" ] || { _shellb_print_err "cmd_file not given" ; return 1; }
   uuid_file="$(basename "${cmd_file}")"
   uuid_file="${uuid_file%.*}"
   echo "${cmd_file%/*}/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
@@ -57,15 +57,15 @@ function _shellb_command_save() {
   # sanity checks
   command_string="${1}"
   cmd_file="${2}"
-  [ -n "${command_string}" ] || _shellb_print_err "command_string not given" || return 1
-  [ -n "${cmd_file}" ] || _shellb_print_err "cmd_file not given" || return 1
-  user_dir="$(realpath -eq "${3:-.}" 2>/dev/null)" || _shellb_print_err "\"${3:-.}\" is not a valid dir" || return 1
+  [ -n "${command_string}" ] || { _shellb_print_err "command_string not given" ; return 1; }
+  [ -n "${cmd_file}" ] || { _shellb_print_err "cmd_file not given" ; return 1; }
+  user_dir="$(realpath -eq "${3:-.}" 2>/dev/null)" || { _shellb_print_err "\"${3:-.}\" is not a valid dir" ; return 1; }
   domain_dir=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
   _shellb_core_domain_files_ls_abs_matching_whole_line "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}" "${command_string}" \
-    && _shellb_print_wrn "command <${command_string}> for ${user_dir} unchanged" && return 0
+    && { _shellb_print_nfo "command <${command_string}> for ${user_dir} unchanged" ; return 0 ; }
 
-  mkdir -p "${domain_dir}" || _shellb_print_wrn_fail "failed to create directory \"${domain_dir}\" for <${command_string}> command" || return 1
-  echo "${command_string}" > "${domain_dir}/${cmd_file}" || _shellb_print_wrn_fail "failed to save command <${command_string}> to \"${domain_dir}/${cmd_file}\"" || return 1
+  mkdir -p "${domain_dir}" || { _shellb_print_wrn "failed to create directory \"${domain_dir}\" for <${command_string}> command" ; return 1 ; }
+  echo "${command_string}" > "${domain_dir}/${cmd_file}" || { _shellb_print_wrn "failed to save command <${command_string}> to \"${domain_dir}/${cmd_file}\"" ; return 1 ; }
 }
 
 # Show prompt with current command, and allow user to edit it
@@ -148,35 +148,35 @@ function _shellb_command_selection_edit() {
   tag="$(cat "$(dirname "${chosen_file}")/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
   _shellb_print_nfo "edit command (edit & confirm with ENTER or cancel with ctrl-c)"
-  _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" || return 1
+  _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
   _shellb_print_nfo "edit tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" || return 1
+  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
 }
 
 # ${1} - directory to save command for. default is current dir
 function shellb_command_save_previous() {
   local command user_dir uuid_file
-  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || { _shellb_print_err "\"${1:-.}\" is not a valid dir" ; return 1 ; }
   command=$(history | tail -n 2 | head -n 1 | sed 's/[0-9 ]*//')
   uuid_file="$(uuidgen -t)"
   tag="$(cat "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
   _shellb_print_nfo "save previous command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
-  _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" || return 1
+  _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
   _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" || return 1
+  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return ; }
 }
 
 # ${1} - directory to save command for. default is current dir
 function shellb_command_save_interactive() {
   local user_dir uuid_file
-  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || _shellb_print_err "\"${1:-.}\" is not a valid dir" || return 1
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || { _shellb_print_err "\"${1:-.}\" is not a valid dir" ; return 1 ; }
   uuid_file="$(uuidgen -t)"
 
   _shellb_print_nfo "save new command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
-  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" || return 1
+  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
   _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" || return 1
+  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
 }
 
 # Print out a numbered line with with command and it's tag
@@ -187,8 +187,8 @@ function _shellb_command_print_line() {
   local i file tag
   i="${1}"
   file="${2}"
-  [ -n "${i}" ] || _shellb_print_err "line number not given" || return 1
-  [ -n "${file}" ] || _shellb_print_err "command file not given" || return 1
+  [ -n "${i}" ] || { _shellb_print_err "line number not given" ; return 1 ; }
+  [ -n "${file}" ] || { _shellb_print_err "command file not given" ; return 1 ; }
   tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
 
 #  if (( i % 2 == 1 )); then
@@ -225,14 +225,14 @@ function _shellb_command_list_flat() {
   local user_dir
 
   # some sanity checks
-  user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || _shellb_print_err "\"${1}\" is not a valid dir" || return 1
-  [ -d "${user_dir}" ] || _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" || return 1
+  user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || { _shellb_print_err "\"${1}\" is not a valid dir" ; return 1 ; }
+  [ -d "${user_dir}" ] || { _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" ; return 1 ; }
 
   # fetch all commands under given domain dir and save them in a nameref array
   mapfile -t shellb_command_list_flat_files < <(_shellb_core_domain_files_ls_abs "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
 
   # check if any commands were found
-  [ ${#shellb_command_list_flat_files[@]} -gt 0 ] || _shellb_print_err "no commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\"" || return 1
+  [ ${#shellb_command_list_flat_files[@]} -gt 0 ] || { _shellb_print_err "no commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\"" ; return 1 ; }
 }
 
 # Generate nameref array of command files below given directory, or returns 1 if none found or given dir is invalid
@@ -246,14 +246,14 @@ function _shellb_command_list_recursive() {
   local user_dir
 
   # some sanity checks
-  user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || _shellb_print_err "\"${1}\" is not a valid dir" || return 1
-  [ -d "${user_dir}" ] || _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" || return 1
+  user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || { _shellb_print_err "\"${1}\" is not a valid dir" ; return 1 ; }
+  [ -d "${user_dir}" ] || { _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" ; return 1 ; }
 
   # fetch all commands under given domain dir and save them in a nameref array
   mapfile -t shellb_command_list_recursive_files < <(_shellb_core_domain_files_find_abs "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
 
   # check if any commands were found
-  [ ${#shellb_command_list_recursive_files[@]} -gt 0 ] || _shellb_print_err "no commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\"" || return 1
+  [ ${#shellb_command_list_recursive_files[@]} -gt 0 ] || { _shellb_print_err "no commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\"" ; return 1 ; }
 }
 
 ###############################################
@@ -273,21 +273,21 @@ function shellb_command_list() {
 
   local tag
   [[ "${1:0:1}" = "@" ]] && { tag="${1:1}" ; shift; } || tag="${2:1}"
-  _shellb_command_list_flat "${1}" shellb_command_list_files || return 1
+
+  local user_dir="${1:-.}"
+  _shellb_command_list_flat "${user_dir}" shellb_command_list_files || return 1
 
   # print only commands that match the tag
   if [[ -n "${tag}" ]]; then
     local -a shellb_command_list_files_tagged
     for file in "${shellb_command_list_files[@]}"; do
-      local tagfile
-      tagfile=$(_shellb_command_get_tagfile_from_commandfile "${file}")
-      if grep -qw "${tag}" "${tagfile}" 2>/dev/null; then
+      if grep -qw "${tag}" "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null; then
         shellb_command_list_files_tagged+=("${file}")
       fi
     done
     shellb_command_list_files=("${shellb_command_list_files_tagged[@]}")
 
-    [ ${#shellb_command_list_files_tagged[@]} -gt 0 ] || _shellb_print_err "no commands found with tag \"${tag}\"" || return 1
+    [ ${#shellb_command_list_files_tagged[@]} -gt 0 ] || { _shellb_print_err "no commands found with tag \"${tag}\"" ; return 1; }
     _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\" with tag \"${tag}\""
   else
     _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
@@ -336,7 +336,8 @@ function shellb_command_list_del() {
 # command functions - find
 ###############################################
 
-# Lists commands below given directory, or returns 1 if none found or given dir is invalid
+# Lists commands below given directory; return 1 if none found or given dir is invalid
+# When given a tag, only commands with that tag will be returned
 # $1 - user directory to list command for (default: current dir)
 function shellb_command_find() {
   _shellb_print_dbg "shellb_command_find($*)"
@@ -347,21 +348,20 @@ function shellb_command_find() {
 
   local tag
   [[ "${1:0:1}" = "@" ]] && { tag="${1:1}" ; shift; } || tag="${2:1}"
-  _shellb_command_list_recursive "${1}" shellb_command_find_files || return 1
+  local user_dir="${1:-.}"
+  _shellb_command_list_recursive "${user_dir}" shellb_command_find_files || return 1
 
   # print only commands that match the tag
   if [[ -n "${tag}" ]]; then
     local -a shellb_command_find_files_tagged
     for file in "${shellb_command_find_files[@]}"; do
-      local tagfile
-      tagfile=$(_shellb_command_get_tagfile_from_commandfile "${file}")
-      if grep -qw "${tag}" "${tagfile}" 2>/dev/null; then
+      if grep -qw "${tag}" "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null; then
         shellb_command_find_files_tagged+=("${file}")
       fi
     done
     shellb_command_find_files=("${shellb_command_find_files_tagged[@]}")
 
-    [ ${#shellb_command_find_files_tagged[@]} -gt 0 ] || _shellb_print_err "no commands found with tag \"${tag}\"" || return 1
+    [ ${#shellb_command_find_files_tagged[@]} -gt 0 ] || { _shellb_print_err "no commands found with tag \"${tag}\"" ; return 1; }
     _shellb_print_nfo "commands below \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\" with tag \"${tag}\""
   else
     _shellb_print_nfo "commands below \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
@@ -371,6 +371,8 @@ function shellb_command_find() {
   _shellb_command_print_lines shellb_command_find_files
 }
 
+# Show a list of commands installed below given dir, and allow user to select which one to execute
+# $1 - optional directory to list command for (default: current dir)
 function shellb_command_find_exec() {
   _shellb_print_dbg "shellb_command_list_exec($*)"
 
@@ -446,7 +448,7 @@ function _shellb_command_action() {
   local action
   action=$1
   shift
-  [ -n "${action}" ] || _shellb_print_err "no action given" || return 1
+  [ -n "${action}" ] || { _shellb_print_err "no action given" ; return 1; }
 
   case ${action} in
     help)
