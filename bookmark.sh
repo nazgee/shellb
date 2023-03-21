@@ -281,6 +281,45 @@ function shellb_bookmark_list_purge() {
   [ ${some_bookmarks_purged} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were \"alive\")"
 }
 
+function bookmark_bookmark_help() {
+  local action="$1"
+
+  case "$action" in
+    new)
+      echo "Usage: bookmark new [bookmark_name] [bookmark_path]"
+      echo "Creates a new bookmark with the specified name and path."
+      echo "If no name is specified, the current directory name is used as the name."
+      echo "If no path is specified, the current directory path is used as the path."
+      ;;
+    del)
+      echo "Usage: bookmark del [bookmark_name]"
+      echo "Deletes the bookmark with the specified name."
+      ;;
+    go)
+      echo "Usage: bookmark go [bookmark_name]"
+      echo "Navigates to the directory associated with the specified bookmark."
+      ;;
+    edit)
+      echo "Usage: bookmark edit [bookmark_name]"
+      echo "Opens the bookmark file for editing in the default editor."
+      ;;
+    list)
+      echo "Usage: bookmark list"
+      echo "Lists all available bookmarks and their associated paths."
+      ;;
+    purge)
+      echo "Usage: bookmark purge"
+      echo "Deletes all existing bookmarks."
+      ;;
+    *)
+      echo "Usage: bookmark help [action]"
+      echo "Displays help information for the specified action."
+      echo "Actions: new, del, go, edit, list, purge"
+      ;;
+  esac
+}
+
+
 _SHELLB_BOOKMARK_ACTIONS="new del go edit list purge"
 
 function _shellb_bookmark_action() {
@@ -293,7 +332,7 @@ function _shellb_bookmark_action() {
   case ${action} in
     help)
       # TODO: implement help
-      _shellb_print_err "unimplemented \"bookmark $action\""
+      bookmark_bookmark_help "$@"
       ;;
     new)
       shellb_bookmark_set "$@"
@@ -331,7 +370,7 @@ function _shellb_bookmark_compgen() {
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
 
-  case $((COMP_CWORD)) in
+  case $COMP_CWORD in
     2)
       opts="${_SHELLB_BOOKMARK_ACTIONS} help"
       ;;

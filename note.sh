@@ -238,7 +238,7 @@ function _shellb_note_compgen() {
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
 
-  case $((COMP_CWORD)) in
+  case $COMP_CWORD in
     2)
       opts="${_SHELLB_NOTE_ACTIONS} help"
       ;;
@@ -264,7 +264,7 @@ function _shellb_note_compgen() {
           return
           ;;
         purge)
-          opts="aaaaaaaaaa"
+          opts=""
           ;;
         *)
           _shellb_print_wrn "unknown command \"${comp_cur}\""
