@@ -168,19 +168,20 @@ function _shellb_get_common_part() {
   fi
 }
 
-
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long($*)"
 
   # fetch all bookmarks or only those starting with given glob expression
-  mapfile -t matched_bookmarks < <(_shellb_bookmark_glob "${1}")
+  local -n shellb_bookmark_list_long_bookmarks=$1
+  shift
+  mapfile -t shellb_bookmark_list_long_bookmarks < <(_shellb_bookmark_glob "${1}")
 
   # check any bookmarks were found
-  [ ${#matched_bookmarks[@]} -gt 0 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
+  [ ${#shellb_bookmark_list_long_bookmarks[@]} -gt 0 ] || _shellb_print_wrn_fail "no bookmarks matching \"${1}\" glob expression" || return 1
 
   # calculate max length of bookmark name
   local bookmarks_len=0
-  for bookmark in "${matched_bookmarks[@]}"; do
+  for bookmark in "${shellb_bookmark_list_long_bookmarks[@]}"; do
     (( ${#bookmark} > bookmarks_len )) && bookmarks_len=${#bookmark}
   done
   (( 4 > bookmarks_len )) && bookmarks_len=4
@@ -188,8 +189,8 @@ function shellb_bookmark_list_long() {
   printf "LIVE | %-${bookmarks_len}s | IDX | TARGET\n" "NAME"
   # print out bookmarks
   local prev_target prev_bookmark target_common bookmark_common
-  for ((i=0; i<${#matched_bookmarks[@]}; i++)); do
-    local bookmark="${matched_bookmarks[i]}"
+  for ((i=0; i<${#shellb_bookmark_list_long_bookmarks[@]}; i++)); do
+    local bookmark="${shellb_bookmark_list_long_bookmarks[i]}"
     local target
     target=$(shellb_bookmark_get_short "${bookmark}") || return 1 # error message already printed
 
@@ -224,42 +225,38 @@ function shellb_bookmark_list_short() {
   echo "${matched_bookmarks[@]}"
 }
 
-function shellb_bookmark_list_goto() {
-local list target bookmarks_count
-  # if no bookmarks matched -- exit immediatly
-  list=$(shellb_bookmark_list_long "${1}")  || return 1
+function _shellb_bookmark_select() {
+  _shellb_print_dbg "_shellb_bookmark_select($*)"
+  local -n _shellb_bookmark_select_bookmark=$1
+  shift
+  local -a _shellb_bookmark_select_bookmarks
+  shellb_bookmark_list_long _shellb_bookmark_select_bookmarks "${1}"  || return 1
 
-  bookmarks_count=$(echo "${list}" | wc -l)
   # if we have some bookmarks, let user choose
-  if [[ ${bookmarks_count} -gt 2 ]]; then
-    echo "$list"
+  local selection
+  if [[ ${#_shellb_bookmark_select_bookmarks[@]} -gt 1 ]]; then
     _shellb_print_nfo "select bookmark to goto:"
-    selection=$(_shellb_core_get_user_number "${bookmarks_count}") || return 1
+    selection=$(_shellb_core_get_user_number "${#_shellb_bookmark_select_bookmarks[@]}") || return 1
   else
     selection="1"
   fi
-  target=$(echo "${list}" | _shellb_core_filter_row "$(("${selection}" + 1))" | _shellb_core_filter_column "2")
 
-  shellb_bookmark_goto "$(_shellb_core_string_trim "${target}")"
+  # shellcheck disable=SC2034
+  _shellb_bookmark_select_bookmark="${_shellb_bookmark_select_bookmarks[selection-1]}"
+}
+
+function shellb_bookmark_list_goto() {
+  local shellb_bookmark_list_goto_bookmark
+  _shellb_print_dbg "shellb_bookmark_list_goto($*)"
+  _shellb_bookmark_select shellb_bookmark_list_goto_bookmark "${1}" || return 1
+  shellb_bookmark_goto "${shellb_bookmark_list_goto_bookmark}"
 }
 
 function shellb_bookmark_list_del() {
-  local list target bookmarks_count
-  # if no bookmarks matched -- exit immediatly
-  list=$(shellb_bookmark_list_long "${1}")  || return 1
-
-  bookmarks_count=$(echo "${list}" | wc -l)
-  # if we have some bookmarks, let user choose
-  if [[ ${bookmarks_count} -gt 2 ]]; then
-    echo "$list"
-    _shellb_print_nfo "select bookmark to delete:"
-    selection=$(_shellb_core_get_user_number "${bookmarks_count}") || return 1
-  else
-    selection="1"
-  fi
-  target=$(echo "${list}" | _shellb_core_filter_row "$(("${selection}" + 1))" | _shellb_core_filter_column "2")
-
-  shellb_bookmark_del "$(_shellb_core_string_trim "${target}")"
+  local shellb_bookmark_list_del_bookmark
+  _shellb_print_dbg "shellb_bookmark_list_del($*)"
+  _shellb_bookmark_select shellb_bookmark_list_del_bookmark "${1}" || return 1
+  shellb_bookmark_del "${shellb_bookmark_list_del_bookmark}"
 }
 
 function shellb_bookmark_list_purge() {

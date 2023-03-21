@@ -256,12 +256,6 @@ function _shellb_core_is_path_below_and_owned() {
   _shellb_core_is_path_below "${path}" "${domain}" || return 1
 }
 
-# trims whitespaces in a given string
-# ${1} string to trim
-function _shellb_core_string_trim() {
-  echo "${1}" | xargs
-}
-
 # Returns absolute file or directory path, translated into a given domain.
 # Fails only if domain is not below _SHELLB_DB
 # ${1} - user dir or file
