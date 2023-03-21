@@ -515,11 +515,6 @@ function shellb_command_purge() {
   done
 }
 
-function shellb_command_help() {
-  # TODO implement
-  _shellb_print_err "help not implemented yet"
-}
-
 ###############################################
 # command functions - compgen
 ###############################################
@@ -535,7 +530,7 @@ function _shellb_command_action() {
 
   case ${action} in
     help)
-      shellb_command_help "$@"
+    _shellb_print_err "unimplemented \"command $action\""
       ;;
     new)
       shellb_command_save_interactive "$@"
@@ -630,7 +625,7 @@ function _shellb_command_compgen() {
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()
 
-  case $COMP_CWORD in
+  case $((COMP_CWORD)) in
     2)
       opts="${_SHELLB_COMMAND_ACTIONS} help"
       ;;
