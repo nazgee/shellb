@@ -348,7 +348,8 @@ function _shellb_bookmark_action() {
       _shellb_print_err "unimplemented \"bookmark $action\""
       ;;
     list)
-      shellb_bookmark_list_long "$@"
+      local -a _shellb_bookmark_action_list_dummy
+      shellb_bookmark_list_long _shellb_bookmark_action_list_dummy "$@"
       ;;
     purge)
       shellb_bookmark_list_purge "$@"
