@@ -17,7 +17,7 @@ _SHELLB_COLUMN_SEPARATOR=" | "
 # helper functions
 ###############################################
 function _shellb_print_dbg() {
-  [ ${_SHELLB_CFG_DEBUG} -eq 1 ] && printf "${_SHELLB_CFG_LOG_PREFIX}DEBUG: ${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
+  [ "${_SHELLB_CFG_DEBUG}" -eq 1 ] && printf "${_SHELLB_CFG_LOG_PREFIX}DEBUG: ${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}" >&2
 }
 
 function _shellb_print_nfo() {
@@ -185,32 +185,6 @@ function _shellb_core_domain_files_find_abs_matching_whole_line() {
   grep  -l --include="${file_glob}" -RFx "${line_match}" "$(realpath -mq "${domain_dir}/${user_dir}")"
 }
 
-# filter row from stdin
-# ${1} - row number (first row is 1)
-function _shellb_core_filter_row() {
-  _shellb_print_dbg "_shellb_core_get_row($*)"
-  local i=1
-  while read -r line; do
-      if [ $i -eq $1 ]; then
-          echo "$line"
-          return 0
-      fi
-      i=$((i+1))
-  done
-  return 1
-}
-
-# filter column from stdin
-# will fail if the column is empty
-# ${1} - column number
-function _shellb_core_filter_column() {
-  local filtered_line
-  while read -r line; do
-      filtered_line=$(echo "$line" | awk -F' \\| ' "{print \$${1}}")
-      [ -n "${filtered_line}" ] && echo "${filtered_line}" || return 1
-  done
-}
-
 # filter stdin and add prefix to each line
 # will fail if line is empty
 # ${1} - prefix
@@ -222,7 +196,6 @@ function _shellb_core_filter_add_prefix() {
     echo "${prefix}${line}"
   done
 }
-
 
 # fail if given path is not below given domain
 # ${1} - path
@@ -306,7 +279,7 @@ function _shellb_core_calc_domainrel_from_abs() {
   local path domain
   domain="${2}"
   _shellb_core_is_path_below_and_owned "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
-  _shellb_core_is_path_below_and_owned "${1}" "${domain}" || _shellb_print_err "path=${1} is not below domain=${domain}" || return 1
+  _shellb_core_is_path_below_and_owned "${1}/foo" "${domain}" || _shellb_print_err "path=${1} is not below domain=${domain}" || return 1
   path=$(echo "${1#"$2"}" | tr -s /)
   echo "${_SHELLB_CFG_PROTO}${path#"/"}"
 }

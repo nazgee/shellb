@@ -79,101 +79,108 @@ function shellb_notepad_delall() {
   _shellb_print_nfo "all notepads deleted"
 }
 
-# Prints a menu of notepads below given directory, or returns 1 if none found or given dir is invalid
-# $1 - optional directory to list notepads for (default: current dir)
-function _shellb_notepad_list_print_menu() {
-  _shellb_print_dbg "_shellb_notepad_list_print_menu($*)"
-  local user_dir i=0
-  user_dir=$(realpath -qe "${1:-.}" 2>/dev/null) || return 1
-  # fetch all notes under given domain dir
-  mapfile -t matched_notes < <(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "${user_dir}")
-  # check if any notes were found
-  [ ${#matched_notes[@]} -gt 0 ] || return 1
-
-  # print note files
-  for note in "${matched_notes[@]}"; do
-    i=$((i+1))
-    printf "%3s) | %s\n" "${i}" "${note}"
-  done
-}
-
 # Lists notes below given directory, or returns 1 if none found or given dir is invalid
 # $1 - optional directory to list notes below (default: /, will find all notes)
 function shellb_notepad_list() {
   _shellb_print_dbg "shellb_notepad_list($*)"
-
+  local -n shellb_notepad_list_notes=$1
+  shift
   local target proto_target user_dir
-  user_dir=$(realpath -qe "${1:-/}" 2>/dev/null) || _shellb_print_err "notepad list failed, \"${1}\" is not a valid dir" || return 1
-  [ -d "${user_dir}" ] || _shellb_print_err "notepad list failed, \"${user_dir}\" is not a dir" || return 1
+  user_dir=$(realpath -qe "${1:-/}" 2>/dev/null) || {
+    _shellb_print_err "notepad list failed, \"${1}\" is not a valid dir"
+    return 1
+  }
+  [ -d "${user_dir}" ] || {
+    _shellb_print_err "notepad list failed, \"${user_dir}\" is not a dir"
+    return 1
+  }
   target=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_NOTES}")
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
-  notepads_list=$(_shellb_notepad_list_print_menu "${user_dir}") || _shellb_print_err "notepad list failed, no notepads below \"${proto_target}\"" || return 1
+  mapfile -t shellb_notepad_list_notes < <(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "${user_dir}") || {
+    _shellb_print_err "notepads lookup failed, is ${_SHELLB_DB_NOTES} accessible?"
+    return 1
+  }
+
+  [ ${#shellb_notepad_list_notes[@]} -gt 0 ] || {
+    _shellb_print_err "notepad list failed, no notepads below \"${proto_target}\""
+    return 1
+  }
+
   if [ "${user_dir}" = "/" ]; then
     _shellb_print_nfo "all notepads in ${proto_target}"
   else
     _shellb_print_nfo "notepads below \"${proto_target}\""
   fi
-  echo "${notepads_list}"
+
+  # print note files
+  local i=0
+  for note in "${shellb_notepad_list_notes[@]}"; do
+    i=$((i+1))
+    printf "%3s) | %s\n" "${i}" "${note}"
+  done
+}
+
+function _shellb_notes_select() {
+  _shellb_print_dbg "_shellb_notes_select($*)"
+  local prompt="${1}"
+  shift
+  local -n _shellb_notes_select_notepad=$1
+  shift
+  local user_dir
+  user_dir="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
+
+  local -a _shellb_notes_select_notepads
+  if [ -d "${user_dir}" ]; then
+    shellb_notepad_list _shellb_notes_select_notepads "${user_dir}" || {
+      _shellb_print_err "no notepad selected"
+      return 1
+    }
+
+    if [ "${#_shellb_notes_select_notepads[@]}" -gt 1 ]; then
+      _shellb_print_nfo "${prompt}"
+      selection=$(_shellb_core_get_user_number "${#_shellb_notes_select_notepads[@]}") || return 1
+    else
+      selection=1
+    fi
+    _shellb_notes_select_notepad="${user_dir}/${_shellb_notes_select_notepads[selection-1]}"
+  else
+    # shellcheck disable=SC2034
+    _shellb_notes_select_notepad="${user_dir}"
+  fi
+
+  return 0
 }
 
 function shellb_notepad_list_edit() {
   _shellb_print_dbg "shellb_notepad_list_edit($*)"
-  local list target selection user_dir notes_count
-  user_dir="${1:-./${_SHELLB_CFG_NOTE_FILE}}"
-
-  if [ -d "${user_dir}" ]; then
-    list=$(shellb_notepad_list "${user_dir}") || return 1
-    echo "${list}"
-    notes_count=$(($(echo "${list}" | wc -l) - 1))
-    if [ "${notes_count}" -gt 2 ]; then
-      _shellb_print_nfo "select notepad to edit:"
-      selection=$(_shellb_core_get_user_number "${notes_count}") || return 1
-    else
-      selection=1
-    fi
-    target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
-  else
-    target="${user_dir}"
-  fi
-  shellb_notepad_edit "${target}"
+  local shellb_notepad_list_edit_target
+  _shellb_notes_select "select notepad to edit:" shellb_notepad_list_edit_target "${1:-./${_SHELLB_CFG_NOTE_FILE}}" || {
+    _shellb_print_err "notepad edit failed, no notepad selected"
+    return 1
+  }
+  shellb_notepad_edit "${shellb_notepad_list_edit_target}"
 }
 
 function shellb_notepad_list_show() {
   _shellb_print_dbg "shellb_notepad_list_show($*)"
-  local list target selection user_dir notes_count
-  user_dir=$(realpath -qm "${1:-/}" 2>/dev/null) || return 1
-
-  if [ -d "${user_dir}" ]; then
-    list=$(shellb_notepad_list "${user_dir}") || return 1
-    echo "${list}"
-    notes_count=$(($(echo "${list}" | wc -l) - 1))
-    _shellb_print_nfo "select notepad to show:"
-    selection=$(_shellb_core_get_user_number "${notes_count}") || return 1
-    target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
-  else
-    target="${user_dir}"
-  fi
-  shellb_notepad_show "${target}"
+  local shellb_notepad_list_show_target
+  _shellb_notes_select "select notepad to show:" shellb_notepad_list_show_target "${1:-./${_SHELLB_CFG_NOTE_FILE}}" || {
+    _shellb_print_err "notepad show failed, no notepad selected"
+    return 1
+  }
+  shellb_notepad_show "${shellb_notepad_list_show_target}"
 }
 
 # $1 - notepad or direcotry to delete. If it's a directory, ask user to select a notepad
 function shellb_notepad_list_del() {
   _shellb_print_dbg "shellb_notepad_list_del($*)"
-  local list target selection user_dir notes_count
-  user_dir="${1:-/}"
-
-  if [ -d "${user_dir}" ]; then
-    list=$(shellb_notepad_list "${user_dir}") || return 1
-    echo "${list}"
-    notes_count=$(($(echo "${list}" | wc -l) - 1))
-    _shellb_print_nfo "select notepad to delete:"
-    selection=$(_shellb_core_get_user_number "${notes_count}") || return 1
-    target="${user_dir}/$(echo "${list}" | _shellb_core_filter_row $((selection+1)) | _shellb_core_filter_column 2)"
-  else
-    target="${user_dir}"
-  fi
-  shellb_notepad_del "${target}"
+  local shellb_notepad_list_del_target
+  _shellb_notes_select "select notepad to delete:" shellb_notepad_list_del_target "${1:-./${_SHELLB_CFG_NOTE_FILE}}" || {
+    _shellb_print_err "notepad delete failed, no notepad selected"
+    return 1
+  }
+  shellb_notepad_del "${shellb_notepad_list_del_target}"
 }
 
 _SHELLB_NOTE_ACTIONS="edit del cat list purge"
@@ -199,7 +206,8 @@ function _shellb_note_action() {
       shellb_notepad_list_show "$@"
       ;;
     list)
-      shellb_notepad_list "$@"
+      local -a _shellb_note_action_list_dummy
+      shellb_notepad_list _shellb_note_action_list_dummy "$@"
       ;;
     purge)
       _shellb_print_err "unimplemented \"note $action\""

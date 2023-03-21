@@ -227,6 +227,8 @@ function shellb_bookmark_list_short() {
 
 function _shellb_bookmark_select() {
   _shellb_print_dbg "_shellb_bookmark_select($*)"
+  local prompt="${1}"
+  shift
   local -n _shellb_bookmark_select_bookmark=$1
   shift
   local -a _shellb_bookmark_select_bookmarks
@@ -235,7 +237,7 @@ function _shellb_bookmark_select() {
   # if we have some bookmarks, let user choose
   local selection
   if [[ ${#_shellb_bookmark_select_bookmarks[@]} -gt 1 ]]; then
-    _shellb_print_nfo "select bookmark to goto:"
+    _shellb_print_nfo "${prompt}"
     selection=$(_shellb_core_get_user_number "${#_shellb_bookmark_select_bookmarks[@]}") || return 1
   else
     selection="1"
@@ -248,14 +250,14 @@ function _shellb_bookmark_select() {
 function shellb_bookmark_list_goto() {
   local shellb_bookmark_list_goto_bookmark
   _shellb_print_dbg "shellb_bookmark_list_goto($*)"
-  _shellb_bookmark_select shellb_bookmark_list_goto_bookmark "${1}" || return 1
+  _shellb_bookmark_select "select bookmark to goto" shellb_bookmark_list_goto_bookmark "${1}" || return 1
   shellb_bookmark_goto "${shellb_bookmark_list_goto_bookmark}"
 }
 
 function shellb_bookmark_list_del() {
   local shellb_bookmark_list_del_bookmark
   _shellb_print_dbg "shellb_bookmark_list_del($*)"
-  _shellb_bookmark_select shellb_bookmark_list_del_bookmark "${1}" || return 1
+  _shellb_bookmark_select "select bookmark to delete" shellb_bookmark_list_del_bookmark "${1}" || return 1
   shellb_bookmark_del "${shellb_bookmark_list_del_bookmark}"
 }
 
