@@ -25,13 +25,13 @@ _SHELLB_DB_COMMANDS="${_SHELLB_DB}/commands"
 # Given a user path of a file in the shellb domain
 # return it's name translated to shellb proto
 function _shellb_command_get_resource_proto_from_user() {
-  _shellb_core_calc_domainrel_from_user "${1}" "${_SHELLB_DB_COMMANDS}"
+  _shellb_core_calc_proto_from_user "${1}" "${_SHELLB_DB_COMMANDS}"
 }
 
 # Given a user path of a file in the shellb domain
 # return it's name translated to shellb proto
 function _shellb_command_get_resource_proto_from_abs() {
-  _shellb_core_calc_domainrel_from_abs "${1}" "${_SHELLB_DB_COMMANDS}"
+  _shellb_core_calc_proto_from_domainabs "${1}" "${_SHELLB_DB_COMMANDS}"
 }
 
 # Translate /usr/bar/foo._SHELLB_CFG_COMMAND_EXT to /usr/bar/foo._SHELLB_CFG_COMMAND_TAG_EXT
@@ -60,8 +60,8 @@ function _shellb_command_save() {
   [ -n "${command_string}" ] || { _shellb_print_err "command_string not given" ; return 1; }
   [ -n "${cmd_file}" ] || { _shellb_print_err "cmd_file not given" ; return 1; }
   user_dir="$(realpath -eq "${3:-.}" 2>/dev/null)" || { _shellb_print_err "\"${3:-.}\" is not a valid dir" ; return 1; }
-  domain_dir=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
-  _shellb_core_domain_files_ls_abs_matching_whole_line "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}" "${command_string}" \
+  domain_dir=$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+  _shellb_core_ls_domainabs_matching_whole_line "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}" "${command_string}" \
     && { _shellb_print_nfo "command <${command_string}> for ${user_dir} unchanged" ; return 0 ; }
 
   mkdir -p "${domain_dir}" || { _shellb_print_wrn "failed to create directory \"${domain_dir}\" for <${command_string}> command" ; return 1 ; }
@@ -141,7 +141,7 @@ function _shellb_command_selection_edit() {
   chosen_file="${files[${index}-1]}"
   command="$(cat "${chosen_file}")"
 
-  user_path=$(_shellb_core_calc_user_from_domain "${chosen_file}" "${_SHELLB_DB_COMMANDS}")
+  user_path=$(_shellb_core_calc_domainabs_to_user "${chosen_file}" "${_SHELLB_DB_COMMANDS}")
   user_dir="$(dirname "${user_path}")"
   uuid_file="$(basename "${user_path}")"
   uuid_file="${uuid_file%.*}"
@@ -194,7 +194,7 @@ function _shellb_command_print_line() {
 
   local user_dir
   user_dir="$(dirname "${file}")"
-  user_dir=$(_shellb_core_calc_user_from_domain "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+  user_dir=$(_shellb_core_calc_domainabs_to_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
 
   local bookmarks
   bookmarks=$(_shellb_get_userdir_bookmarks "${user_dir}" | tr '\n' ' ')
@@ -300,7 +300,7 @@ function _shellb_command_list_flat() {
   [ -d "${user_dir}" ] || { _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" ; return 1 ; }
 
   # fetch all commands under given domain dir and save them in a nameref array
-  mapfile -t shellb_command_list_flat_files < <(_shellb_core_domain_files_ls_abs "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
+  mapfile -t shellb_command_list_flat_files < <(_shellb_core_ls_domainabs "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
 
   # check if any commands were found
   [ ${#shellb_command_list_flat_files[@]} -gt 0 ] || { _shellb_print_err "no commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\"" ; return 1 ; }
@@ -321,7 +321,7 @@ function _shellb_command_list_recursive() {
   [ -d "${user_dir}" ] || { _shellb_print_err "command list failed, \"${user_dir}\" is not a dir" ; return 1 ; }
 
   # fetch all commands under given domain dir and save them in a nameref array
-  mapfile -t shellb_command_list_recursive_files < <(_shellb_core_domain_files_find_abs "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
+  mapfile -t shellb_command_list_recursive_files < <(_shellb_core_find_domainabs "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}")
 
   # check if any commands were found
   [ ${#shellb_command_list_recursive_files[@]} -gt 0 ] || { _shellb_print_err "no commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\"" ; return 1 ; }
@@ -496,7 +496,7 @@ function shellb_command_purge() {
   local -a files_to_purge
   for cmd_file in "${shellb_command_purge_files[@]}"; do
     # Skip the current iteration if the user directory exists
-    [ -d "$(_shellb_core_calc_user_from_domain "$(dirname "${cmd_file}")" "${_SHELLB_DB_COMMANDS}")" ] && continue
+    [ -d "$(_shellb_core_calc_domainabs_to_user "$(dirname "${cmd_file}")" "${_SHELLB_DB_COMMANDS}")" ] && continue
 
     [ ${#files_to_purge[@]} -eq 0 ] && _shellb_print_nfo "purged \"dead\" commands:"
     files_to_purge+=("${cmd_file}")

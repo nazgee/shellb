@@ -24,7 +24,7 @@ _SHELLB_DB_BOOKMARKS="${_SHELLB_DB}/bookmarks"
 function _shellb_bookmarks_calc_absfile() {
   _shellb_print_dbg "_shellb_bookmarks_calc_absfile(${1})"
   # this is a bit slow due to realpath:
-  #_shellb_core_calc_domain_from_user "/${1}" "${_SHELLB_DB_BOOKMARKS}"
+  #_shellb_core_calc_user_to_domainabs "/${1}" "${_SHELLB_DB_BOOKMARKS}"
   # this is faster:
   echo "${_SHELLB_DB_BOOKMARKS}/${1}"
 }
@@ -33,7 +33,7 @@ function _shellb_bookmark_glob() {
   _shellb_print_dbg "_shellb_bookmark_glob($*)"
   local glob
   glob="${1:-*}"
-  _shellb_core_domain_files_ls "${_SHELLB_DB_BOOKMARKS}" "${glob}.${_SHELLB_CFG_BOOKMARK_EXT}" "/" | sed "s/.${_SHELLB_CFG_BOOKMARK_EXT}//g" | tr ' ' '\n' | sort
+  _shellb_core_ls_domainrel "${_SHELLB_DB_BOOKMARKS}" "${glob}.${_SHELLB_CFG_BOOKMARK_EXT}" "/" | sed "s/.${_SHELLB_CFG_BOOKMARK_EXT}//g" | tr ' ' '\n' | sort
 }
 
 function _shellb_bookmark_get() {
@@ -56,7 +56,7 @@ function _shellb_get_userdir_bookmarks() {
   userdir="${1}"
   [ -n "${userdir}" ] || { _shellb_print_err "user_dir not given"; return 1 ; }
   userdir=$(realpath -mq "${userdir}")
-  for bookmark_file in $(_shellb_core_domain_files_ls_abs_matching_whole_line "${_SHELLB_DB_BOOKMARKS}" "*.${_SHELLB_CFG_BOOKMARK_EXT}" "/" "${userdir}") ; do
+  for bookmark_file in $(_shellb_core_ls_domainabs_matching_whole_line "${_SHELLB_DB_BOOKMARKS}" "*.${_SHELLB_CFG_BOOKMARK_EXT}" "/" "${userdir}") ; do
     printf "%s\n" "$(basename "${bookmark_file%".${_SHELLB_CFG_BOOKMARK_EXT}"}")"
   done
 

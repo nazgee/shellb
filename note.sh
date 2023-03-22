@@ -30,8 +30,8 @@ function shellb_notepad_edit() {
   local target proto_target selection
   selection="$(realpath -mq "${1:-./${_SHELLB_CFG_NOTE_FILE}}" 2>/dev/null)"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
-  target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
-  proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
+  target=$(_shellb_core_calc_user_to_domainabs "${selection}" "${_SHELLB_DB_NOTES}")
+  proto_target=$(_shellb_core_calc_proto_from_domainabs "${target}" "${_SHELLB_DB_NOTES}")
 
   mkdir -p "$(dirname "${target}")" || _shellb_print_err "notepad edit failed, is ${_SHELLB_DB_NOTES} accessible?" || return 1
   eval "${shellb_notepad_editor}" "${target}"
@@ -45,8 +45,8 @@ function shellb_notepad_show() {
   local target proto_target selection
   selection="$(realpath -mq "${1:-./${_SHELLB_CFG_NOTE_FILE}}" 2>/dev/null)"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
-  target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
-  proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
+  target=$(_shellb_core_calc_user_to_domainabs "${selection}" "${_SHELLB_DB_NOTES}")
+  proto_target=$(_shellb_core_calc_proto_from_domainabs "${target}" "${_SHELLB_DB_NOTES}")
 
   [ -e "${target}" ] || _shellb_print_err "notepad cat failed, no \"${proto_target}\" notepad" || return 1
   [ -s "${target}" ] || _shellb_print_err "notepad cat failed, \"${proto_target}\" is empty" || return 1
@@ -60,8 +60,8 @@ function shellb_notepad_del() {
   local target proto_target selection
   selection="$(realpath -mq "${1:-./${_SHELLB_CFG_NOTE_FILE}}" 2>/dev/null)"
   [ -d "${selection}" ] && selection="${selection}/${_SHELLB_CFG_NOTE_FILE}"
-  target=$(_shellb_core_calc_domain_from_user "${selection}" "${_SHELLB_DB_NOTES}")
-  proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
+  target=$(_shellb_core_calc_user_to_domainabs "${selection}" "${_SHELLB_DB_NOTES}")
+  proto_target=$(_shellb_core_calc_proto_from_domainabs "${target}" "${_SHELLB_DB_NOTES}")
 
   [ -f "${target}" ] || _shellb_print_err "notepad del failed, no \"${target}\" notepad" || return 1
   _shellb_core_user_get_confirmation "delete \"${proto_target}\" notepad?" || return 0
@@ -94,10 +94,10 @@ function shellb_notepad_list() {
     _shellb_print_err "notepad list failed, \"${user_dir}\" is not a dir"
     return 1
   }
-  target=$(_shellb_core_calc_domain_from_user "${user_dir}" "${_SHELLB_DB_NOTES}")
-  proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
+  target=$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_NOTES}")
+  proto_target=$(_shellb_core_calc_proto_from_domainabs "${target}" "${_SHELLB_DB_NOTES}")
 
-  mapfile -t shellb_notepad_list_notes < <(_shellb_core_domain_files_find "${_SHELLB_DB_NOTES}" "*" "${user_dir}") || {
+  mapfile -t shellb_notepad_list_notes < <(_shellb_core_find_domainrel "${_SHELLB_DB_NOTES}" "*" "${user_dir}") || {
     _shellb_print_err "notepads lookup failed, is ${_SHELLB_DB_NOTES} accessible?"
     return 1
   }

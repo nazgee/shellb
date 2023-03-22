@@ -39,6 +39,8 @@ function _shellb_print_err() {
   return 1
 }
 
+######### file operations #####################
+
 function _shellb_core_remove() {
   _shellb_print_dbg "_shellb_core_remove($*)"
   local target
@@ -58,6 +60,8 @@ function _shellb_core_remove_dir() {
   _shellb_core_is_path_below_and_owned "${target}" "${_SHELLB_DB}" || _shellb_print_err "target dir ${target} is not below ${_SHELLB_DB}" || return 1
   echo rm "${target}" -rf || _shellb_print_err "failed to remove ${target} dir" || return 1
 }
+
+######### interactive helpers #################
 
 function _shellb_core_user_get_confirmation() {
   _shellb_print_dbg "_shellb_core_user_get_confirmation($*)"
@@ -88,12 +92,28 @@ function _shellb_core_user_get_number() {
   echo "${selection}"
 }
 
+######### stdout filters ######################
+
+# filter stdin and add prefix to each line
+# will fail if line is empty
+# ${1} - prefix
+function _shellb_core_filter_add_prefix() {
+  local prefix
+  prefix="${1}"
+  while read -r line; do
+    [ -z "${line}" ] && return 1
+    echo "${prefix}${line}"
+  done
+}
+
+######### files list ##########################
+
 # list all files in a given domain directory (just file names matching glob, return paths relative to the domain dir)
 # ${1} - domain directory
 # ${2} - file glob
 # ${3} - user dir
-function _shellb_core_domain_files_ls() {
-  _shellb_print_dbg "_shellb_core_domain_files_ls($*)"
+function _shellb_core_ls_domainrel() {
+  _shellb_print_dbg "_shellb_core_ls_domainrel($*)"
   local domain_dir user_dir file_glob
   domain_dir="${1}"
   file_glob="${2}"
@@ -109,14 +129,14 @@ function _shellb_core_domain_files_ls() {
 # ${1} - domain directory
 # ${2} - file glob
 # ${3} - user dir
-function _shellb_core_domain_files_ls_abs() {
-  _shellb_print_dbg "_shellb_core_domain_files_ls_abs($*)"
+function _shellb_core_ls_domainabs() {
+  _shellb_print_dbg "_shellb_core_ls_domainabs($*)"
   local domain_dir user_dir file_glob
   domain_dir="${1}"
   file_glob="${2}"
   user_dir="$(realpath -mq "${3}")"
 
-  _shellb_core_domain_files_ls "${domain_dir}" "${file_glob}" "${user_dir}" | _shellb_core_filter_add_prefix "${domain_dir}/${user_dir}/" | tr -s /
+  _shellb_core_ls_domainrel "${domain_dir}" "${file_glob}" "${user_dir}" | _shellb_core_filter_add_prefix "${domain_dir}/${user_dir}/" | tr -s /
 }
 
 # list matching files in a given domain directory (just file names matching glob, return absolute paths)
@@ -124,8 +144,8 @@ function _shellb_core_domain_files_ls_abs() {
 # ${2} - file glob
 # ${3} - user dir
 # ${4} - line to match
-function _shellb_core_domain_files_ls_abs_matching_whole_line() {
-  _shellb_print_dbg "_shellb_core_domain_files_ls_abs_matching_whole_line($*)"
+function _shellb_core_ls_domainabs_matching_whole_line() {
+  _shellb_print_dbg "_shellb_core_ls_domainabs_matching_whole_line($*)"
   local domain_dir user_dir file_glob line_match
   domain_dir="${1}"
   file_glob="${2}"
@@ -136,12 +156,14 @@ function _shellb_core_domain_files_ls_abs_matching_whole_line() {
   grep  -d skip -l --include="${file_glob}" -Fx "${line_match}" "$(realpath -mq "${domain_dir}/${user_dir}")/"* 2>/dev/null
 }
 
+######### files find ##########################
+
 # list all files below a given domain directory (just file names matching glob, return paths relative to the domain dir)
 # ${1} - domain directory
 # ${2} - file glob
 # ${3} - user dir
-function _shellb_core_domain_files_find() {
-  _shellb_print_dbg "_shellb_core_domain_dirs_list($*)"
+function _shellb_core_find_domainrel() {
+  _shellb_print_dbg "_shellb_core_find_domainrel($*)"
   local domain_dir user_dir file_glob
   domain_dir="${1}"
   file_glob="${2}"
@@ -157,27 +179,17 @@ function _shellb_core_domain_files_find() {
 # ${1} - domain directory
 # ${2} - file glob
 # ${3} - user dir
-function _shellb_core_domain_files_find_abs() {
-  _shellb_print_dbg "_shellb_core_domain_files_find_abs($*)"
+function _shellb_core_find_domainabs() {
+  _shellb_print_dbg "_shellb_core_find_domainabs($*)"
   local domain_dir user_dir file_glob
   domain_dir="${1}"
   file_glob="${2}"
   user_dir="$(realpath -mq "${3}")"
 
-  _shellb_core_domain_files_find "${domain_dir}" "${file_glob}" "${user_dir}" | _shellb_core_filter_add_prefix "${domain_dir}/${user_dir}/" | tr -s /
+  _shellb_core_find_domainrel "${domain_dir}" "${file_glob}" "${user_dir}" | _shellb_core_filter_add_prefix "${domain_dir}/${user_dir}/" | tr -s /
 }
 
-# filter stdin and add prefix to each line
-# will fail if line is empty
-# ${1} - prefix
-function _shellb_core_filter_add_prefix() {
-  local prefix
-  prefix="${1}"
-  while read -r line; do
-    [ -z "${line}" ] && return 1
-    echo "${prefix}${line}"
-  done
-}
+######### files path helpers ##################
 
 # fail if given path is not below given domain
 # ${1} - path
@@ -216,8 +228,8 @@ function _shellb_core_is_path_below_and_owned() {
 # ${1} - user dir or file
 # ${2} - shellb domain directory
 # FIXME: This function is slow. Check it's usage and optimize it
-function _shellb_core_calc_domain_from_user() {
-  _shellb_print_dbg "_shellb_core_calc_domain_from_user($*)"
+function _shellb_core_calc_user_to_domainabs() {
+  _shellb_print_dbg "_shellb_core_calc_user_to_domainabs($*)"
   local file_user domain
   domain="${2}"
   _shellb_core_is_path_below_and_owned "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
@@ -230,8 +242,8 @@ function _shellb_core_calc_domain_from_user() {
 # Translates absolute dir/file path into protocol path
 # ${1} - absolute dir/file path (under domain)
 # ${2} - domain
-function _shellb_core_calc_user_from_domain() {
-  _shellb_print_dbg "_shellb_core_calc_user_from_domain($*)"
+function _shellb_core_calc_domainabs_to_user() {
+  _shellb_print_dbg "_shellb_core_calc_domainabs_to_user($*)"
   local path domain
   domain="${2}"
   _shellb_core_is_path_below_and_owned "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
@@ -240,24 +252,12 @@ function _shellb_core_calc_user_from_domain() {
   echo "${path}"
 }
 
-# Translates given user file to shellb domain absolute path.
-# Will fail if file does not exist in the domain
-# ${1} - user filename
-# ${2} - shellb domain directory
-function _shellb_core_file_get_domain_from_user() {
-  _shellb_print_dbg "_shellb_core_file_get_domain_from_user($*)"
-  local in_domain
-  in_domain=$(_shellb_core_calc_domain_from_user "${1}" "${2}") || return 1
-  [ -f "${in_domain}" ] || _shellb_print_err "\"${in_domain}\" does not exist in \"${2}\" domain" || return 1
-  echo "${in_domain}"
-}
-
 # Translates absolute dir/file path into protocol path
 # Translates absolute dir/file path into protocol path
 # ${1} - absolute dir/file path (under domain)
 # ${2} - domain
-function _shellb_core_calc_domainrel_from_abs() {
-  _shellb_print_dbg "_shellb_core_calc_domainrel_from_abs($*)"
+function _shellb_core_calc_proto_from_domainabs() {
+  _shellb_print_dbg "_shellb_core_calc_proto_from_domainabs($*)"
   local path domain
   domain="${2}"
   _shellb_core_is_path_below_and_owned "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
@@ -269,8 +269,8 @@ function _shellb_core_calc_domainrel_from_abs() {
 # Translates user dir/file path into protocol path
 # ${1} - user dir/file path
 # ${2} - domain
-function _shellb_core_calc_domainrel_from_user() {
-  _shellb_print_dbg "_shellb_core_calc_domainrel_from_abs($*)"
+function _shellb_core_calc_proto_from_user() {
+  _shellb_print_dbg "_shellb_core_calc_proto_from_user($*)"
   local path domain
   path=$(realpath -eq "${1:-.}" | tr -s /)
   domain="${2}"
@@ -284,6 +284,8 @@ function _shellb_core_completion_to_dir() {
   [ -d "${completion}" ] && echo "${completion}" && return 0
   dirname "${completion}"
 }
+
+######### compgen #############################
 
 # Generate mixture of user-directories and shellb-resources for completion
 # All user directories will be completed, but only existing shellb resource-files will be shown
@@ -342,7 +344,7 @@ function _shellb_core_compgen() {
     # check what files are in _SHELLB_DB_NOTES for current completion word
     # and for all dir-based completions
     for dir in ${opts_dirs} ${comp_cur_dir} ; do
-      files_in_domain_dir=$(_shellb_core_domain_files_ls "${domain}" "${resource_glob}" "$(realpath "${dir}")" 2>/dev/null)
+      files_in_domain_dir=$(_shellb_core_ls_domainrel "${domain}" "${resource_glob}" "$(realpath "${dir}")" 2>/dev/null)
       for file_in_domain_dir in ${files_in_domain_dir} ; do
         opts_resources="${opts_resources} $(echo "${dir}/${file_in_domain_dir}" | tr -s /)"
       done
