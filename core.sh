@@ -182,7 +182,7 @@ function _shellb_core_domain_files_find_abs_matching_whole_line() {
   line_match="${4}"
   [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
   _shellb_core_is_path_below_and_owned "${domain_dir}/foo" "${domain_dir}" || _shellb_print_err "non-shellb domain=${domain_dir}" || return 1
-  grep  -l --include="${file_glob}" -RFx "${line_match}" "$(realpath -mq "${domain_dir}/${user_dir}")"
+  grep  -l --include="${file_glob}" -RFx "${line_match}" "$(realpath -mq "${domain_dir}/${user_dir}")" >/dev/null
 }
 
 # filter stdin and add prefix to each line
@@ -294,18 +294,6 @@ function _shellb_core_calc_domainrel_from_user() {
   domain="${2}"
   _shellb_core_is_path_below_and_owned "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
   echo "${_SHELLB_CFG_PROTO}${path#"/"}"
-}
-
-# return 0 if content is same as file
-# ${1} - content to test
-# ${2} - file to test against
-function _shellb_core_is_same_as_file() {
-  _shellb_print_dbg "_shellb_core_is_same_as_file(${1})"
-  local content file
-  content="${1}"
-  file="${2}"
-  echo "${content}" | cmp -s - "${file}" > /dev/null
-  return $?
 }
 
 function _shellb_core_completion_to_dir() {

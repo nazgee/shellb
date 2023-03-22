@@ -75,7 +75,7 @@ function shellb_bookmark_set() {
   [ -e "${bookmark_target}" ] || { _shellb_print_err "set bookmark failed, invalid directory (${bookmark_target})"; return 1; }
 
   bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}.${_SHELLB_CFG_BOOKMARK_EXT}")"
-  if [ -e "${bookmark_file}" ] && ! _shellb_core_is_same_as_file "${bookmark_target}" "${bookmark_file}"; then
+  if [ -e "${bookmark_file}" ] && ! echo "${bookmark_target}" | cmp -s - "${bookmark_file}" > /dev/null; then
     _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name}")\" exists, change it to \"${bookmark_target}\"?" || return 0
   fi
 
