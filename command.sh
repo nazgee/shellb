@@ -150,7 +150,8 @@ function _shellb_command_selection_edit() {
   _shellb_print_nfo "edit command (edit & confirm with ENTER or cancel with ctrl-c)"
   _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
   _shellb_print_nfo "edit tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
+  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " 2>/dev/null # safe to fail (tag may be empty)
+  return 0
 }
 
 # ${1} - directory to save command for. default is current dir
@@ -164,7 +165,8 @@ function shellb_command_save_previous() {
   _shellb_print_nfo "save previous command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
   _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
   _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return ; }
+  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " 2>/dev/null # safe to fail (tag may be empty)
+  return 0
 }
 
 # ${1} - directory to save command for. default is current dir
@@ -176,7 +178,8 @@ function shellb_command_save_interactive() {
   _shellb_print_nfo "save new command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
   _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
   _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
+  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " 2>/dev/null # safe to fail (tag may be empty)
+  return 0
 }
 
 function _shellb_command_print_lines() {
