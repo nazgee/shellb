@@ -200,10 +200,11 @@ function shellb_bookmark_list_long() {
     target=$(shellb_bookmark_get_short "${bookmark}") || return 1 # error message already printed
 
     # calculate common and unique part between previous and current target
-    target_common=$(_shellb_core_calc_common_part "${prev_target}" "${target}" "${target_common}")
+    target_common=$(_shellb_core_calc_common_part "${target}" "${prev_target}" "$(shellb_bookmark_get_short "${shellb_bookmark_list_long_bookmarks[i+1]}" 2>/dev/null)")
+    # target_common=$(_shellb_core_calc_common_part_sticky "${prev_target}" "${target}" "${target_common}")
     local target_unique="${target#"${target_common}"}"
     # calculate common and unique part between previous and current bookmark
-    bookmark_common=$(_shellb_core_calc_common_part "${prev_bookmark}" "${bookmark}" "${bookmark_common}")
+    bookmark_common=$(_shellb_core_calc_common_part_sticky "${prev_bookmark}" "${bookmark}" "${bookmark_common}")
     local bookmark_unique="${bookmark#"${bookmark_common}"}"
 
     if _shellb_bookmark_is_alive "${bookmark}"; then

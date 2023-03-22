@@ -211,7 +211,7 @@ function _shellb_command_print_lines() {
     command=$(cat "${file}")
 
     # calculate common and unique part between previous and current command
-    command_common=$(_shellb_core_calc_common_part "${prev_command}" "${command}" "${command_common}")
+    command_common=$(_shellb_core_calc_common_part "${command}" "${prev_command}" "$(cat "${shellb_command_print_lines_files[i]}" 2>/dev/null)")
     local command_unique="${command#"${command_common}"}"
 
     printf "%20s| %${max_length}s | %3s | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" "${bookmarks}" "${tag}" "${i}" "${command_common}" "${command_unique}"

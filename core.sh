@@ -106,7 +106,7 @@ function _shellb_core_filter_add_prefix() {
   done
 }
 
-function _shellb_core_calc_common_part() {
+function _shellb_core_calc_common_part_sticky() {
   local prev_target target previous_ref_target
   prev_target="${1}"
   target="${2}"
@@ -118,6 +118,36 @@ function _shellb_core_calc_common_part() {
     echo "${previous_ref_target}"
   else
     echo ""
+  fi
+}
+
+function _shellb_core_calc_common_part() {
+  local curr="$1"
+  local prev="$2"
+  local next="$3"
+  local common_prev=""
+  local common_next=""
+
+  for ((i=0; i<${#curr} && i<${#prev}; i++)); do
+    if [[ "${curr:i:1}" == "${prev:i:1}" ]]; then
+      common_prev="${common_prev}${curr:i:1}"
+    else
+      break
+    fi
+  done
+
+  for ((i=0; i<${#curr} && i<${#next}; i++)); do
+    if [[ "${curr:i:1}" == "${next:i:1}" ]]; then
+      common_next="${common_next}${curr:i:1}"
+    else
+      break
+    fi
+  done
+
+  if [[ ${#common_prev} -gt ${#common_next} ]]; then
+    echo "$common_prev"
+  else
+    echo "$common_next"
   fi
 }
 
