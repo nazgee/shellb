@@ -56,7 +56,7 @@ function _shellb_get_userdir_bookmarks() {
   userdir="${1}"
   [ -n "${userdir}" ] || { _shellb_print_err "user_dir not given"; return 1 ; }
   userdir=$(realpath -mq "${userdir}")
-  for bookmark_file in $(_shellb_core_domain_files_find_abs_matching_whole_line "${_SHELLB_DB_BOOKMARKS}" "*.${_SHELLB_CFG_BOOKMARK_EXT}" "/" "${userdir}") ; do
+  for bookmark_file in $(_shellb_core_domain_files_ls_abs_matching_whole_line "${_SHELLB_DB_BOOKMARKS}" "*.${_SHELLB_CFG_BOOKMARK_EXT}" "/" "${userdir}") ; do
     printf "%s\n" "$(basename "${bookmark_file%".${_SHELLB_CFG_BOOKMARK_EXT}"}")"
   done
 
@@ -76,7 +76,7 @@ function shellb_bookmark_set() {
 
   bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}.${_SHELLB_CFG_BOOKMARK_EXT}")"
   if [ -e "${bookmark_file}" ] && ! echo "${bookmark_target}" | cmp -s - "${bookmark_file}" > /dev/null; then
-    _shellb_core_get_user_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name}")\" exists, change it to \"${bookmark_target}\"?" || return 0
+    _shellb_core_user_get_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name}")\" exists, change it to \"${bookmark_target}\"?" || return 0
   fi
 
   # Save the bookmark
@@ -99,7 +99,7 @@ function shellb_bookmark_del() {
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
   [ -e "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
-  [ -n "${assume_yes}" ] || _shellb_core_get_user_confirmation "delete \"${1}\" bookmark?" || return 0
+  [ -n "${assume_yes}" ] || _shellb_core_user_get_confirmation "delete \"${1}\" bookmark?" || return 0
   _shellb_core_remove "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
   _shellb_print_nfo "bookmark deleted: ${1}"
 }
@@ -258,7 +258,7 @@ function _shellb_bookmark_select() {
   local selection
   if [[ ${#_shellb_bookmark_select_bookmarks[@]} -gt 1 ]]; then
     _shellb_print_nfo "${prompt}"
-    selection=$(_shellb_core_get_user_number "${#_shellb_bookmark_select_bookmarks[@]}") || return 1
+    selection=$(_shellb_core_user_get_number "${#_shellb_bookmark_select_bookmarks[@]}") || return 1
   else
     selection="1"
   fi
@@ -291,7 +291,7 @@ function shellb_bookmark_list_edit() {
 function shellb_bookmark_list_purge() {
   _shellb_print_dbg "shellb_bookmark_listpurge(${1})"
 
-  _shellb_core_get_user_confirmation "This will remove \"dead\" bookmarks. Bookmarks to accessible directories will be kept unchanged. Proceed?" || return 0
+  _shellb_core_user_get_confirmation "This will remove \"dead\" bookmarks. Bookmarks to accessible directories will be kept unchanged. Proceed?" || return 0
 
   # display bookmark names and paths
   local some_bookmarks_purged=0

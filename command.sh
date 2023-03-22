@@ -103,7 +103,7 @@ function _shellb_command_selection_exec() {
   local index chosen_command final_command
 
   _shellb_print_nfo "select command to execute:"
-  index=$(_shellb_core_get_user_number "${#files[@]}") || return 1
+  index=$(_shellb_core_user_get_number "${#files[@]}") || return 1
   chosen_command="$(cat "${files[${index}-1]}")"
 
   _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
@@ -117,13 +117,13 @@ function _shellb_command_selection_del() {
   local index chosen_command chosen_cmdfile chosen_tagfile
 
   _shellb_print_nfo "select command to delete:"
-  index=$(_shellb_core_get_user_number "${#files[@]}") || return 1
+  index=$(_shellb_core_user_get_number "${#files[@]}") || return 1
   chosen_cmdfile="${files[${index}-1]}"
   chosen_tagfile="$(_shellb_command_get_tagfile_from_commandfile "${chosen_cmdfile}")"
   chosen_command="$(cat "${chosen_cmdfile}")"
 
   _shellb_print_nfo "command file: \"$(_shellb_command_get_resource_proto_from_abs "${chosen_cmdfile}")\""
-  _shellb_core_get_user_confirmation "delete command \"${chosen_command}\"?" || return 0
+  _shellb_core_user_get_confirmation "delete command \"${chosen_command}\"?" || return 0
   _shellb_core_remove "${chosen_cmdfile}" && _shellb_core_remove "${chosen_tagfile}" && _shellb_print_nfo "command deleted: ${chosen_command}"
 }
 
@@ -137,7 +137,7 @@ function _shellb_command_selection_edit() {
   local index command tag chosen_file user_dir user_path uuid_file
 
   _shellb_print_nfo "select command to edit:"
-  index=$(_shellb_core_get_user_number "${#files[@]}") || return 1
+  index=$(_shellb_core_user_get_number "${#files[@]}") || return 1
   chosen_file="${files[${index}-1]}"
   command="$(cat "${chosen_file}")"
 
@@ -506,7 +506,7 @@ function shellb_command_purge() {
 
   _shellb_command_print_lines files_to_purge
 
-  _shellb_core_get_user_confirmation "delete ${#files_to_purge[@]} commands saved for inaccessible dirs?" || return 0
+  _shellb_core_user_get_confirmation "delete ${#files_to_purge[@]} commands saved for inaccessible dirs?" || return 0
   for cmd_file in "${files_to_purge[@]}"; do
     local tag_file
     tag_file=$(_shellb_command_get_tagfile_from_commandfile "${cmd_file}")

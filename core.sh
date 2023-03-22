@@ -11,7 +11,6 @@ if [ $sourced -eq 0 ]; then
 fi
 
 _SHELLB_DB="$(realpath -q ~/.shellB)"
-_SHELLB_COLUMN_SEPARATOR=" | "
 
 ###############################################
 # helper functions
@@ -60,8 +59,8 @@ function _shellb_core_remove_dir() {
   echo rm "${target}" -rf || _shellb_print_err "failed to remove ${target} dir" || return 1
 }
 
-function _shellb_core_get_user_confirmation() {
-  _shellb_print_dbg "_shellb_core_get_user_confirmation($*)"
+function _shellb_core_user_get_confirmation() {
+  _shellb_print_dbg "_shellb_core_user_get_confirmation($*)"
   local question reply
   question="${1}"
   _shellb_print_wrn "${question} [Y/n]"
@@ -79,7 +78,7 @@ function _shellb_core_get_user_confirmation() {
 
 # Return a number provided by the user between 1 and ${1}
 # ${1} - max accepted number
-function _shellb_core_get_user_number() {
+function _shellb_core_user_get_number() {
   _shellb_print_dbg "_shellb_core_get_user_selection($*)"
   local -i selection
   local -i choices
@@ -134,7 +133,7 @@ function _shellb_core_domain_files_ls_abs_matching_whole_line() {
   line_match="${4}"
   [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
   _shellb_core_is_path_below_and_owned "${domain_dir}/foo" "${domain_dir}" || _shellb_print_err "non-shellb domain=${domain_dir}" || return 1
-  grep  -d skip -l --include="${file_glob}" -Fx "${line_match}" "$(realpath -mq "${domain_dir}/${user_dir}")/"* >/dev/null
+  grep  -d skip -l --include="${file_glob}" -Fx "${line_match}" "$(realpath -mq "${domain_dir}/${user_dir}")/"* 2>/dev/null
 }
 
 # list all files below a given domain directory (just file names matching glob, return paths relative to the domain dir)
@@ -166,23 +165,6 @@ function _shellb_core_domain_files_find_abs() {
   user_dir="$(realpath -mq "${3}")"
 
   _shellb_core_domain_files_find "${domain_dir}" "${file_glob}" "${user_dir}" | _shellb_core_filter_add_prefix "${domain_dir}/${user_dir}/" | tr -s /
-}
-
-# list matching files below a given domain directory (just file names matching glob, return absolute paths)
-# ${1} - domain directory
-# ${2} - file glob
-# ${3} - user dir
-# ${4} - line to match
-function _shellb_core_domain_files_find_abs_matching_whole_line() {
-  _shellb_print_dbg "_shellb_core_domain_files_find_abs_matching_whole_line($*)"
-  local domain_dir user_dir file_glob line_match
-  domain_dir="${1}"
-  file_glob="${2}"
-  user_dir="$(realpath -mq "${3}")"
-  line_match="${4}"
-  [ -n "${domain_dir}" ] || _shellb_print_err "domain dir can't be empty" || return 1
-  _shellb_core_is_path_below_and_owned "${domain_dir}/foo" "${domain_dir}" || _shellb_print_err "non-shellb domain=${domain_dir}" || return 1
-  grep  -l --include="${file_glob}" -RFx "${line_match}" "$(realpath -mq "${domain_dir}/${user_dir}")" >/dev/null
 }
 
 # filter stdin and add prefix to each line

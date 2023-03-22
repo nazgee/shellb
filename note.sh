@@ -64,14 +64,14 @@ function shellb_notepad_del() {
   proto_target=$(_shellb_core_calc_domainrel_from_abs "${target}" "${_SHELLB_DB_NOTES}")
 
   [ -f "${target}" ] || _shellb_print_err "notepad del failed, no \"${target}\" notepad" || return 1
-  _shellb_core_get_user_confirmation "delete \"${proto_target}\" notepad?" || return 0
+  _shellb_core_user_get_confirmation "delete \"${proto_target}\" notepad?" || return 0
   _shellb_core_remove "${target}" || _shellb_print_err "notepad \"${notepad_domainfile}\" del failed, is it accessible?" || return 1
   _shellb_print_nfo "\"${proto_target}\" notepad deleted"
 }
 
 function shellb_notepad_delall() {
   _shellb_print_dbg "shellb_notepad_delall($*)"
-  _shellb_core_get_user_confirmation "delete all notepads?" || return 0 && _shellb_print_nfo "deleting all notepads"
+  _shellb_core_user_get_confirmation "delete all notepads?" || return 0 && _shellb_print_nfo "deleting all notepads"
 
   # delete all notepads. this is a bit dangerous, but we have a confirmation step above
   # in case _SHELLB_DB_NOTES is not set, script should exit becase :? will fail
@@ -139,7 +139,7 @@ function _shellb_notes_select() {
 
     if [ "${#_shellb_notes_select_notepads[@]}" -gt 1 ]; then
       _shellb_print_nfo "${prompt}"
-      selection=$(_shellb_core_get_user_number "${#_shellb_notes_select_notepads[@]}") || return 1
+      selection=$(_shellb_core_user_get_number "${#_shellb_notes_select_notepads[@]}") || return 1
     else
       selection=1
     fi
