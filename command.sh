@@ -179,27 +179,44 @@ function shellb_command_save_interactive() {
   _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
 }
 
-# Print out a numbered line with with command and it's tag
-# ${1} - line number
-# ${2} - abs command file
-function _shellb_command_print_line() {
-  _shellb_print_dbg "_shellb_command_print_line($*)"
-  local i file tag
-  i="${1}"
-  file="${2}"
-  tag_column_width="${3}"
-  [ -n "${i}" ] || { _shellb_print_err "line number not given" ; return 1 ; }
-  [ -n "${file}" ] || { _shellb_print_err "command file not given" ; return 1 ; }
-  tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
+function _shellb_command_print_lines() {
+  local -n shellb_command_print_lines_files=$1
+  local i=0
 
-  local user_dir
-  user_dir="$(dirname "${file}")"
-  user_dir=$(_shellb_core_calc_domainabs_to_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+  # calculate max length of tags
+  local max_length=0
+  for cmd_file in "${shellb_command_print_lines_files[@]}"; do
+    local tag_file tag_len
+    tag_file="$(_shellb_command_get_tagfile_from_commandfile "${cmd_file}")"
+    tag_len="$(wc -c 2>/dev/null < "${tag_file}" )" || continue
+    (( tag_len > max_length )) && max_length=${tag_len}
+  done
+  (( 4 > max_length )) && max_length=4
 
-  local bookmarks
-  bookmarks=$(_shellb_get_userdir_bookmarks "${user_dir}" | tr '\n' ' ')
+  # print lines
+  local prev_command=""
+  printf "%19s | %${max_length}s | IDX | CMD\n" "LOCATION" "TAGS"
+  for file in "${shellb_command_print_lines_files[@]}"; do
+    i=$((i+1))
 
-  printf "%20s| %${tag_column_width}s | %3s | %s\n" "${bookmarks}" "${tag}" "${i}" "$(cat "${file}")"
+    tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
+    local user_dir
+    user_dir="$(dirname "${file}")"
+    user_dir=$(_shellb_core_calc_domainabs_to_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+
+    local bookmarks
+    bookmarks=$(_shellb_get_userdir_bookmarks "${user_dir}" | tr '\n' ' ')
+
+    local command command_common
+    command=$(cat "${file}")
+
+    # calculate common and unique part between previous and current command
+    command_common=$(_shellb_core_calc_common_part "${prev_command}" "${command}" "${command_common}")
+    local command_unique="${command#"${command_common}"}"
+
+    printf "%20s| %${max_length}s | %3s | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" "${bookmarks}" "${tag}" "${i}" "${command_common}" "${command_unique}"
+    prev_command="${command}"
+  done
 }
 
 # _shellb_command_sort_by_contents
@@ -261,28 +278,6 @@ function _shellb_command_sort_by_contents_and_deduplicate() {
 
   # Return the sorted file names as a newline-separated string
   printf "%s\n" "${sorted_file_names[@]}"
-}
-
-function _shellb_command_print_lines() {
-  local -n shellb_command_print_lines_files=$1
-  local i=0
-
-  # calculate max length of tags
-  local max_length=0
-  for cmd_file in "${shellb_command_print_lines_files[@]}"; do
-    local tag_file tag_len
-    tag_file="$(_shellb_command_get_tagfile_from_commandfile "${cmd_file}")"
-    tag_len="$(wc -c 2>/dev/null < "${tag_file}" )" || continue
-    (( tag_len > max_length )) && max_length=${tag_len}
-  done
-  (( 4 > max_length )) && max_length=4
-
-  # print lines
-  printf "%19s | %${max_length}s | IDX | CMD\n" "LOCATION" "TAGS"
-  for file in "${shellb_command_print_lines_files[@]}"; do
-    i=$((i+1))
-    _shellb_command_print_line "${i}" "${file}" "${max_length}"
-  done
 }
 
 # Generate nameref array of command files in given directory, or returns 1 if none found or given dir is invalid

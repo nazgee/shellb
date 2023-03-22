@@ -92,7 +92,7 @@ function _shellb_core_user_get_number() {
   echo "${selection}"
 }
 
-######### stdout filters ######################
+######### filters #############################
 
 # filter stdin and add prefix to each line
 # will fail if line is empty
@@ -104,6 +104,21 @@ function _shellb_core_filter_add_prefix() {
     [ -z "${line}" ] && return 1
     echo "${prefix}${line}"
   done
+}
+
+function _shellb_core_calc_common_part() {
+  local prev_target target previous_ref_target
+  prev_target="${1}"
+  target="${2}"
+  previous_ref_target="${3}"
+
+  if [[ -n "${prev_target}" && "${target}" == "${prev_target}"* ]]; then
+    echo "${prev_target}"
+  elif [[ -n "${previous_ref_target}" && "${target}" == "${previous_ref_target}"* ]]; then
+    echo "${previous_ref_target}"
+  else
+    echo ""
+  fi
 }
 
 ######### files list ##########################

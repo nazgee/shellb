@@ -173,21 +173,6 @@ function shellb_bookmark_get_long() {
   _shellb_bookmark_print_long "${1}" "${target}"
 }
 
-function _shellb_get_common_part() {
-  local prev_target target previous_ref_target
-  prev_target="${1}"
-  target="${2}"
-  previous_ref_target="${3}"
-
-  if [[ -n "${prev_target}" && "${target}" == "${prev_target}"* ]]; then
-    echo "${prev_target}"
-  elif [[ -n "${previous_ref_target}" && "${target}" == "${previous_ref_target}"* ]]; then
-    echo "${previous_ref_target}"
-  else
-    echo ""
-  fi
-}
-
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long($*)"
 
@@ -215,10 +200,10 @@ function shellb_bookmark_list_long() {
     target=$(shellb_bookmark_get_short "${bookmark}") || return 1 # error message already printed
 
     # calculate common and unique part between previous and current target
-    target_common=$(_shellb_get_common_part "${prev_target}" "${target}" "${target_common}")
+    target_common=$(_shellb_core_calc_common_part "${prev_target}" "${target}" "${target_common}")
     local target_unique="${target#"${target_common}"}"
     # calculate common and unique part between previous and current bookmark
-    bookmark_common=$(_shellb_get_common_part "${prev_bookmark}" "${bookmark}" "${bookmark_common}")
+    bookmark_common=$(_shellb_core_calc_common_part "${prev_bookmark}" "${bookmark}" "${bookmark_common}")
     local bookmark_unique="${bookmark#"${bookmark_common}"}"
 
     if _shellb_bookmark_is_alive "${bookmark}"; then
