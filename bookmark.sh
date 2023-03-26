@@ -51,7 +51,7 @@ function _shellb_bookmark_is_alive() {
 }
 
 function _shellb_get_userdir_bookmarks() {
-  _shellb_print_dbg "_shellb_is_userdir_bookmarked($*)"
+  _shellb_print_dbg "_shellb_get_userdir_bookmarks($*)"
   local userdir
   userdir="${1}"
   [ -n "${userdir}" ] || { _shellb_print_err "user_dir not given"; return 1 ; }

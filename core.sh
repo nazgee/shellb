@@ -46,7 +46,7 @@ function _shellb_core_remove() {
   local target
   target="${1}"
   [ -n "${target}" ] || _shellb_print_err "target can't be empty" || return 1
-  [ -e "${target}" ] || _shellb_print_err "target doesn't exist" || return 1
+  [ -e "${target}" ] || _shellb_print_err "target \"${target}\" doesn't exist" || return 1
   _shellb_core_is_path_below_and_owned "${target}" "${_SHELLB_DB}" || _shellb_print_err "target file ${target} is not below ${_SHELLB_DB}" || return 1
   rm "${target}" || _shellb_print_err "failed to remove ${target} file" || return 1
 }
@@ -292,8 +292,8 @@ function _shellb_core_calc_domainabs_to_user() {
   local path domain
   domain="${2}"
   _shellb_core_is_path_below_and_owned "${domain}/foo" "${domain}" || _shellb_print_err "non-shellb domain=${domain}" || return 1
-  _shellb_core_is_path_below_and_owned "${1}" "${domain}" || _shellb_print_err "path=${1} is not below domain=${domain}" || return 1
-  path=$(echo "${1#"$2"}" | tr -s /)
+  _shellb_core_is_path_below_and_owned "${1}/foo" "${domain}" || _shellb_print_err "path=${1} is not below domain=${domain}" || return 1
+  path=$(echo "/${1#"$2"}" | tr -s /)
   echo "${path}"
 }
 

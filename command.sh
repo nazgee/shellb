@@ -46,44 +46,77 @@ function _shellb_command_get_tagfile_from_commandfile() {
   echo "${cmd_file%/*}/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
 }
 
-# Save given command for a given user dir.
-# ${1} - command string
-# ${2} - command file name
-# ${3} - optional: directory to save command for (default is current dir)
-function _shellb_command_save() {
-  _shellb_print_dbg "_shellb_command_save($*)"
-  local command_string user_dir domain_dir cmd_file
-
-  # sanity checks
-  command_string="${1}"
-  cmd_file="${2}"
-  [ -n "${command_string}" ] || { _shellb_print_err "command_string not given" ; return 1; }
-  [ -n "${cmd_file}" ] || { _shellb_print_err "cmd_file not given" ; return 1; }
-  user_dir="$(realpath -eq "${3:-.}" 2>/dev/null)" || { _shellb_print_err "\"${3:-.}\" is not a valid dir" ; return 1; }
-  domain_dir=$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_COMMANDS}")
-  _shellb_core_ls_domainabs_matching_whole_line "${_SHELLB_DB_COMMANDS}" "*.${_SHELLB_CFG_COMMAND_EXT}" "${user_dir}" "${command_string}" \
-    && { _shellb_print_nfo "command <${command_string}> for ${user_dir} unchanged" ; return 0 ; }
-
-  mkdir -p "${domain_dir}" || { _shellb_print_wrn "failed to create directory \"${domain_dir}\" for <${command_string}> command" ; return 1 ; }
-  echo "${command_string}" > "${domain_dir}/${cmd_file}" || { _shellb_print_wrn "failed to save command <${command_string}> to \"${domain_dir}/${cmd_file}\"" ; return 1 ; }
-}
-
-# Show prompt with current command, and allow user to edit it
-# command will be saved if user confirms with ENTER
+# Show prompt with current tags, and allow user to edit it
+# Tags will be saved if user confirms with ENTER
 # ${1} - user directory to save content for
 # ${2} - content to edit (can be empty)
 # ${3} - file name
 # ${4} - prompt
-function _shellb_command_edit() {
-  _shellb_print_dbg "_shellb_command_edit($*)"
+function _shellb_command_edit_tagfile() {
+  _shellb_print_dbg "_shellb_command_edit_tagfile($*)"
   local user_dir content file
-  user_dir="${1:-.}"
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || {
+    _shellb_print_err "\"${1:-.}\" is not a valid dir"
+    return 1
+  }
   content="${2}"
   file="${3}"
-  prompt="${4:-$ }"
-  read -r -e -p "${prompt}" -i "${content}" content || return 1
-  _shellb_command_save "${content}" "${file}" "${user_dir}"
+  read -r -e -p "#tags: " -i "${content}" content || return 1
+  [ -n "${content}" ] || {
+    local domain_file
+    domain_file="$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_COMMANDS}")/${file}"
+    echo "" > "${domain_file}"
+    _shellb_print_nfo "tags removed for ${domain_file}"
+    return 0
+  }
+  _shellb_command_contents_save "${content}" "${file}" "${user_dir}"
 }
+
+# Show prompt with current command, and allow user to edit it
+# Command will be saved if user confirms with ENTER
+# ${1} - user directory to save content for
+# ${2} - content to edit (can be empty)
+# ${3} - file name
+function _shellb_command_edit_commandfile() {
+  _shellb_print_dbg "_shellb_command_edit_commandfile($*)"
+  local user_dir content file
+  user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || {
+    _shellb_print_err "\"${1:-.}\" is not a valid dir"
+    return 1
+  }
+  content="${2}"
+  file="${3}"
+  read -r -e -p "$ " -i "${content}" content || return 1
+  [ -n "${content}" ] || { _shellb_print_err "command not given" ; return 1; }
+  _shellb_command_contents_save "${content}" "${file}" "${user_dir}"
+}
+
+# Save contents for to a given file, for a given user dir.
+# ${1} - contents
+# ${2} - file name
+# ${3} - optional: directory to save command for (default is current dir)
+function _shellb_command_contents_save() {
+  _shellb_print_dbg "_shellb_command_contents_save($*)"
+  local content file extension user_dir domain_dir
+  content="${1}"
+  file="${2}"
+  extension="${file##*.}"
+  [ -n "${file}" ] || { _shellb_print_err "file not given" ; return 1; }
+  domain_dir=$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+  _shellb_core_ls_domainabs_matching_whole_line "${_SHELLB_DB_COMMANDS}" "*.${extension}" "${user_dir}" "${content}" 1>/dev/null && {
+    _shellb_print_nfo "\"${content}\" unchanged for ${user_dir}"
+    return 0
+  }
+  mkdir -p "${domain_dir}" || {
+    _shellb_print_wrn "failed to create directory \"${domain_dir}\" for <${content}> command"
+    return 1
+  }
+  echo "${content}" > "${domain_dir}/${file}" || {
+    _shellb_print_wrn "failed to save contents \"${content}\" for \"${domain_dir}/${file}\""
+    return 1
+  }
+}
+
 
 # ${1} command to execute
 function _shellb_command_exec() {
@@ -124,7 +157,10 @@ function _shellb_command_selection_del() {
 
   _shellb_print_nfo "command file: \"$(_shellb_command_get_resource_proto_from_abs "${chosen_cmdfile}")\""
   _shellb_core_user_get_confirmation "delete command \"${chosen_command}\"?" || return 0
-  _shellb_core_remove "${chosen_cmdfile}" && _shellb_core_remove "${chosen_tagfile}" && _shellb_print_nfo "command deleted: ${chosen_command}"
+  _shellb_core_remove "${chosen_cmdfile}" && {
+    _shellb_core_remove "${chosen_tagfile}" 2>/dev/null # safe to fail (tag file may be empty)
+    _shellb_print_nfo "command deleted: ${chosen_command}"
+  }
 }
 
 # Ask user to select a number from 1 to size of given array
@@ -148,9 +184,12 @@ function _shellb_command_selection_edit() {
   tag="$(cat "$(dirname "${chosen_file}")/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
   _shellb_print_nfo "edit command (edit & confirm with ENTER or cancel with ctrl-c)"
-  _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
+  _shellb_command_edit_commandfile "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || {
+    _shellb_print_wrn "failed to edit command \"${command}\". Maybe "${user_dir}" is not a valid dir? Purge command with \"shellb command purge\""
+    return 1
+  }
   _shellb_print_nfo "edit tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " 2>/dev/null # safe to fail (tag may be empty)
+  _shellb_command_edit_tagfile "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
   return 0
 }
 
@@ -163,9 +202,11 @@ function shellb_command_save_previous() {
   tag="$(cat "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
   _shellb_print_nfo "save previous command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
-  _shellb_command_edit "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
+  _shellb_command_edit_commandfile "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || {
+    return 1
+  }
   _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " 2>/dev/null # safe to fail (tag may be empty)
+  _shellb_command_edit_tagfile "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
   return 0
 }
 
@@ -176,33 +217,68 @@ function shellb_command_save_interactive() {
   uuid_file="$(uuidgen -t)"
 
   _shellb_print_nfo "save new command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
-  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || { _shellb_print_err "invoke \"shellb command purge\" to remove commands saved for \"dead\" directories" ; return 1 ; }
+  _shellb_command_edit_commandfile "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" || {
+    return 1
+  }
   _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
-  _shellb_command_edit "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" "#tags: " 2>/dev/null # safe to fail (tag may be empty)
+  _shellb_command_edit_tagfile "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
   return 0
 }
 
+# Print command files in a table
+# ${1} - nameref to array with command files
 function _shellb_command_print_lines() {
   local -n shellb_command_print_lines_files=$1
   local i=0
 
-  # calculate max length of tags
-  local max_length=0
-  for cmd_file in "${shellb_command_print_lines_files[@]}"; do
+  local header_bookmarks="BOOKMARK " # extra space for padding
+  local header_tags="TAGS"
+  local header_command="COMMAND"
+  local header_index="IDX"
+
+  # calculate columns width
+  local max_tag_length=0
+  local max_bookmarks_length=0
+  local bookmarks tags
+  for file in "${shellb_command_print_lines_files[@]}"; do
     local tag_file tag_len
-    tag_file="$(_shellb_command_get_tagfile_from_commandfile "${cmd_file}")"
-    tag_len="$(wc -c 2>/dev/null < "${tag_file}" )" || continue
-    (( tag_len > max_length )) && max_length=${tag_len}
+    tag_file="$(_shellb_command_get_tagfile_from_commandfile "${file}")"
+    tags=$(cat "${tag_file}" 2>/dev/null)
+    tag_len="${#tags}" && (( tag_len > max_tag_length )) && max_tag_length=${tag_len}
+
+    local bookmarks bookmarks_len user_dir
+    user_dir="$(dirname "${file}")"
+    user_dir=$(_shellb_core_calc_domainabs_to_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
+    bookmarks=$(_shellb_get_userdir_bookmarks "${user_dir}" | tr '\n' ' ') || continue
+    bookmarks_len=${#bookmarks}
+    (( bookmarks_len > max_bookmarks_length )) && max_bookmarks_length=${bookmarks_len}
   done
-  (( 4 > max_length )) && max_length=4
+
+  local show_bookmarks show_tags
+  [ "${max_tag_length}" -gt 0 ] && {
+    show_tags=1
+  }
+  [ "${max_bookmarks_length}" -gt 0 ] && {
+    show_bookmarks=1
+  }
+
+  [ "${#header_tags}" -gt "$max_tag_length" ] && {
+    max_tag_length=${#header_tags}
+  }
+  [ "${#header_bookmarks}" -gt "$max_bookmarks_length" ] && {
+    max_bookmarks_length=${#header_bookmarks}
+  }
+
+  [ -n "${show_bookmarks}" ] && printf "%${max_bookmarks_length}s| " "${header_bookmarks}"
+  [ -n "${show_tags}" ] && printf "%${max_tag_length}s | " "${header_tags}"
 
   # print lines
   local prev_command=""
-  printf "%19s | %${max_length}s | IDX | CMD\n" "LOCATION" "TAGS"
+  printf "%s | %s\n" "${header_index}" "${header_command}"
   for file in "${shellb_command_print_lines_files[@]}"; do
     i=$((i+1))
 
-    tag=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
+    tags=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
     local user_dir
     user_dir="$(dirname "${file}")"
     user_dir=$(_shellb_core_calc_domainabs_to_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
@@ -217,7 +293,9 @@ function _shellb_command_print_lines() {
     command_common=$(_shellb_core_calc_common_part "${command}" "${prev_command}" "$(cat "${shellb_command_print_lines_files[i]}" 2>/dev/null)")
     local command_unique="${command#"${command_common}"}"
 
-    printf "%20s| %${max_length}s | %3s | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" "${bookmarks}" "${tag}" "${i}" "${command_common}" "${command_unique}"
+    [ -n "${show_bookmarks}" ] && printf "%${max_bookmarks_length}s| " "${bookmarks}"
+    [ -n "${show_tags}" ] && printf "%${max_tag_length}s | " "${tags}"
+    printf "%3s | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" "${i}" "${command_common}" "${command_unique}"
     prev_command="${command}"
   done
 }
