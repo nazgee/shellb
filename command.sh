@@ -100,6 +100,7 @@ function _shellb_command_contents_save() {
   local content file extension user_dir domain_dir
   content="${1}"
   file="${2}"
+  user_dir="${3}"
   extension="${file##*.}"
   [ -n "${file}" ] || { _shellb_print_err "file not given" ; return 1; }
   domain_dir=$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_COMMANDS}")
@@ -228,9 +229,33 @@ function shellb_command_save_interactive() {
 # Print command files in a table
 # ${1} - nameref to array with command files
 function _shellb_command_print_lines() {
-  local -n shellb_command_print_lines_files=$1
-  local i=0
+  _shellb_print_debug "_shellb_command_print_lines($*)"
+  local show_bookmarks=-1
+  local show_tags=-1
+  local -n shellb_command_print_lines_files="$1"
+  shift
+  for arg in "$@"
+  do
+    case "$arg" in
+      --bookmarks)
+        show_bookmarks=1
+        ;;
+      --nobookmarks)
+        show_bookmarks=0
+        ;;
+      --tags)
+        show_tags=1
+        ;;
+      --notags)
+        show_tags=0
+        ;;
+      *)
+        _shellb_print_err "unknown argument: $arg"
+        ;;
+    esac
+  done
 
+  local i=0
   local header_bookmarks="BOOKMARK " # extra space for padding
   local header_tags="TAGS"
   local header_command="COMMAND"
@@ -254,13 +279,13 @@ function _shellb_command_print_lines() {
     (( bookmarks_len > max_bookmarks_length )) && max_bookmarks_length=${bookmarks_len}
   done
 
-  local show_bookmarks show_tags
-  [ "${max_tag_length}" -gt 0 ] && {
+  [ "${show_tags}" -eq -1 ] && [ "${max_tag_length}" -gt 0 ] && {
     show_tags=1
   }
-  [ "${max_bookmarks_length}" -gt 0 ] && {
+  [ "${show_bookmarks}" -eq -1 ] && [ "${max_bookmarks_length}" -gt 0 ] && {
     show_bookmarks=1
   }
+
 
   [ "${#header_tags}" -gt "$max_tag_length" ] && {
     max_tag_length=${#header_tags}
@@ -269,8 +294,8 @@ function _shellb_command_print_lines() {
     max_bookmarks_length=${#header_bookmarks}
   }
 
-  [ -n "${show_bookmarks}" ] && printf "%${max_bookmarks_length}s| " "${header_bookmarks}"
-  [ -n "${show_tags}" ] && printf "%${max_tag_length}s | " "${header_tags}"
+  [ "${show_bookmarks}" -eq 1 ] && printf "%${max_bookmarks_length}s| " "${header_bookmarks}"
+  [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s | " "${header_tags}"
 
   # print lines
   local prev_command=""
@@ -293,8 +318,8 @@ function _shellb_command_print_lines() {
     command_common=$(_shellb_core_calc_common_part "${command}" "${prev_command}" "$(cat "${shellb_command_print_lines_files[i]}" 2>/dev/null)")
     local command_unique="${command#"${command_common}"}"
 
-    [ -n "${show_bookmarks}" ] && printf "%${max_bookmarks_length}s| " "${bookmarks}"
-    [ -n "${show_tags}" ] && printf "%${max_tag_length}s | " "${tags}"
+    [ "${show_bookmarks}" -eq 1 ] && printf "%${max_bookmarks_length}s| " "${bookmarks}"
+    [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s | " "${tags}"
     printf "%3s | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" "${i}" "${command_common}" "${command_unique}"
     prev_command="${command}"
   done
@@ -419,9 +444,17 @@ function shellb_command_list() {
   shift
 
   local tag
-  [[ "${1:0:1}" = "@" ]] && { tag="${1:1}" ; shift; } || tag="${2:1}"
-
+  [[ "${1:0:1}" = "@" ]] && {
+    tag="${1:1}"
+    shift
+  }
   local user_dir="${1:-.}"
+  shift
+  [[ "${1:0:1}" = "@" ]] && {
+    tag="${1:1}"
+    shift
+  }
+
   _shellb_command_list_flat "${user_dir}" shellb_command_list_files || return 1
 
   # print only commands that match the tag
@@ -442,7 +475,7 @@ function shellb_command_list() {
 
   # TODO add param to show list with duplicates -- this is useful when we want to delete command
   mapfile -t shellb_command_list_files< <(_shellb_command_sort_by_contents_and_deduplicate "${shellb_command_list_files[@]}")
-  _shellb_command_print_lines shellb_command_list_files
+  _shellb_command_print_lines shellb_command_list_files "$@"
 }
 
 # Open a list of commands installed for given dir, and allow user to select which one to execute
@@ -498,8 +531,16 @@ function shellb_command_find() {
   shift
 
   local tag
-  [[ "${1:0:1}" = "@" ]] && { tag="${1:1}" ; shift; } || tag="${2:1}"
+  [[ "${1:0:1}" = "@" ]] && {
+    tag="${1:1}"
+    shift
+  }
   local user_dir="${1:-.}"
+  shift
+  [[ "${1:0:1}" = "@" ]] && {
+    tag="${1:1}"
+    shift
+  }
   _shellb_command_list_recursive "${user_dir}" shellb_command_find_files || return 1
 
   # print only commands that match the tag
@@ -521,7 +562,7 @@ function shellb_command_find() {
   # print commands
   # TODO add param to show list with duplicates -- this is useful when we want to delete command
   mapfile -t shellb_command_find_files< <(_shellb_command_sort_by_contents_and_deduplicate "${shellb_command_find_files[@]}")
-  _shellb_command_print_lines shellb_command_find_files
+  _shellb_command_print_lines shellb_command_find_files "$@"
 }
 
 # Show a list of commands installed below given dir, and allow user to select which one to execute
