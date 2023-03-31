@@ -101,13 +101,8 @@ function _shellb_command_contents_save() {
   content="${1}"
   file="${2}"
   user_dir="${3}"
-  extension="${file##*.}"
   [ -n "${file}" ] || { _shellb_print_err "file not given" ; return 1; }
   domain_dir=$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_COMMANDS}")
-  _shellb_core_ls_domainabs_matching_whole_line "${_SHELLB_DB_COMMANDS}" "*.${extension}" "${user_dir}" "${content}" 1>/dev/null && {
-    _shellb_print_nfo "\"${content}\" unchanged for ${user_dir}"
-    return 0
-  }
   mkdir -p "${domain_dir}" || {
     _shellb_print_wrn "failed to create directory \"${domain_dir}\" for <${content}> command"
     return 1
@@ -186,7 +181,7 @@ function _shellb_command_selection_edit() {
 
   _shellb_print_nfo "edit command (edit & confirm with ENTER or cancel with ctrl-c)"
   _shellb_command_edit_commandfile "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || {
-    _shellb_print_wrn "failed to edit command \"${command}\". Maybe "${user_dir}" is not a valid dir? Purge command with \"shellb command purge\""
+    _shellb_print_wrn "failed to edit command \"${command}\". Maybe \"${user_dir}\" is not a valid dir? Purge command with \"shellb command purge\""
     return 1
   }
   _shellb_print_nfo "edit tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
