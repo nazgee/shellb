@@ -113,13 +113,21 @@ function _shellb_command_contents_save() {
   }
 }
 
-
 # ${1} command to execute
 function _shellb_command_exec() {
   _shellb_print_dbg "_shellb_command_exec($*)"
   local target="${1}"
   history -s "${target}"
   eval "${target}"
+}
+
+# ${1} command to execute
+function _shellb_command_exec_with_confirmation() {
+  _shellb_print_dbg "_shellb_command_exec_with_confirmation($*)"
+  local final_command chosen_command="${1}"
+  history -s "${target}"
+  _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
+  read -r -e -p "$ " -i "${chosen_command}" final_command && _shellb_command_exec "${final_command}"
 }
 
 # Ask user to select a number from 1 to size of given array
@@ -135,8 +143,7 @@ function _shellb_command_selection_exec() {
   index=$(_shellb_core_user_get_number "${#files[@]}") || return 1
   chosen_command="$(cat "${files[${index}-1]}")"
 
-  _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
-  read -r -e -p "$ " -i "${chosen_command}" final_command && _shellb_command_exec "${final_command}"
+  _shellb_command_exec_with_confirmation "${chosen_command}"
 }
 
 function _shellb_command_selection_del() {
@@ -224,7 +231,7 @@ function shellb_command_save_interactive() {
 # Print command files in a table
 # ${1} - nameref to array with command files
 function _shellb_command_print_lines() {
-  _shellb_print_debug "_shellb_command_print_lines($*)"
+  _shellb_print_dbg "_shellb_command_print_lines($*)"
   local show_bookmarks=-1
   local show_tags=-1
   local -n shellb_command_print_lines_files="$1"
@@ -482,7 +489,11 @@ function shellb_command_list_exec() {
   local -a shellb_command_list_exec_files
   # get list of commands
   shellb_command_list shellb_command_list_exec_files "$@" || return 1
-  _shellb_command_selection_exec "${shellb_command_list_exec_files[@]}"
+  if [ ${#shellb_command_list_exec_files[@]} -eq 1 ]; then
+    _shellb_command_exec_with_confirmation "$(cat "${shellb_command_list_exec_files[0]}")"
+  else
+    _shellb_command_selection_exec "${shellb_command_list_exec_files[@]}"
+  fi
 }
 
 # Open a list of commands installed for given dir, and allow user to select one to edit
