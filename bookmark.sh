@@ -178,9 +178,9 @@ function _shellb_bookmark_print_long() {
   _shellb_print_dbg "_shellb_bookmark_print_long($*)"
   local column_width="$3"
   if _shellb_bookmark_is_alive "$1"; then
-    printf "${_SHELLB_CFG_SYMBOL_CHECK} | %${column_width}s | %s\n" "${1}" "${2}"
+    printf "%${column_width}s | %s\n" "${1}" "${2}"
   else
-    printf "${_SHELLB_CFG_SYMBOL_CROSS} | %${column_width}s | ${_SHELLB_CFG_COLOR_ERR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
+    printf " ${_SHELLB_CFG_COLOR_BAD}%${column_width}s | %s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
   fi
 }
 
@@ -211,7 +211,7 @@ function shellb_bookmark_list_long() {
   done
   (( 4 > bookmarks_len )) && bookmarks_len=4
 
-  printf "LIVE %-${bookmarks_len}s IDX TARGET\n" "NAME"
+  printf "%-${bookmarks_len}s IDX TARGET\n" "NAME"
   # print out bookmarks
   local prev_target prev_bookmark target_common bookmark_common
   for ((i=0; i<${#shellb_bookmark_list_long_bookmarks[@]}; i++)); do
@@ -228,10 +228,10 @@ function shellb_bookmark_list_long() {
     local bookmark_unique="${bookmark#"${bookmark_common}"}"
 
     if _shellb_bookmark_is_alive "${bookmark}"; then
-      printf "  ${_SHELLB_CFG_SYMBOL_CHECK}  ${_SHELLB_CFG_COLOR_LNK_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_LNK}%-$((bookmarks_len - ${#bookmark_common}))s${_SHELLB_COLOR_NONE} %3s ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_DIR_UNDER}%s${_SHELLB_COLOR_NONE}\n" \
+      printf "${_SHELLB_CFG_COLOR_LNK_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_LNK}%-$((bookmarks_len - ${#bookmark_common}))s${_SHELLB_COLOR_NONE} %3s ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_DIR_UNDER}%s${_SHELLB_COLOR_NONE}\n" \
         "${bookmark_common}" "${bookmark_unique}" "$((i+1))" "${target_common}" "${target_unique}"
     else
-      printf "  ${_SHELLB_CFG_COLOR_BAD}${_SHELLB_CFG_SYMBOL_CROSS}${_SHELLB_COLOR_NONE}  ${_SHELLB_CFG_COLOR_LNK_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_LNK}%-$((bookmarks_len - ${#bookmark_common}))s${_SHELLB_COLOR_NONE} ${_SHELLB_CFG_COLOR_BAD}%3s${_SHELLB_COLOR_NONE} ${_SHELLB_CFG_COLOR_DIR_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}\n" \
+      printf "${_SHELLB_CFG_COLOR_BAD}%s%-$((bookmarks_len - ${#bookmark_common}))s %3s %s %s${_SHELLB_COLOR_NONE}\n" \
         "${bookmark_common}" "${bookmark_unique}" "$((i+1))" "${target_common}" "${target_unique}"
     fi
 
