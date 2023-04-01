@@ -266,19 +266,21 @@ function _shellb_command_print_lines() {
   # calculate columns width
   local max_tag_length=0
   local max_bookmarks_length=0
-  local bookmarks tags
+  local -A file_to_tags file_to_bookmarks
+
   for file in "${shellb_command_print_lines_files[@]}"; do
-    local tag_file tag_len
+    local tag_file tags bookmarks
+
     tag_file="$(_shellb_command_get_tagfile_from_commandfile "${file}")"
     tags=$(cat "${tag_file}" 2>/dev/null)
-    tag_len="${#tags}" && (( tag_len > max_tag_length )) && max_tag_length=${tag_len}
+    [ ${#tags} -gt $max_tag_length ] && max_tag_length=${#tags}
 
-    local bookmarks bookmarks_len user_dir
-    user_dir="$(dirname "${file}")"
-    user_dir=$(_shellb_core_calc_domainabs_to_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
-    bookmarks=$(_shellb_get_userdir_bookmarks "${user_dir}" | tr '\n' ' ') || continue
-    bookmarks_len=${#bookmarks}
-    (( bookmarks_len > max_bookmarks_length )) && max_bookmarks_length=${bookmarks_len}
+    bookmarks=$(_shellb_get_userdir_bookmarks_string "$(dirname "${file#$_SHELLB_DB_COMMANDS}")" | tr '\n' ' ') || continue
+    [ ${#bookmarks} -gt $max_bookmarks_length ] && max_bookmarks_length=${#bookmarks}
+
+    # store tags and bookmarks in associative arrays (to be used in display loop)
+    file_to_tags["${file}"]="${tags}"
+    file_to_bookmarks["${file}"]="${bookmarks}"
   done
 
   [ "${show_tags}" -eq -1 ] && [ "${max_tag_length}" -gt 0 ] && {
@@ -300,30 +302,18 @@ function _shellb_command_print_lines() {
   [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s " "${header_tags}"
 
   # print lines
-  local prev_command=""
   printf "%s %s\n" "${header_index}" "${header_command}"
   for file in "${shellb_command_print_lines_files[@]}"; do
     i=$((i+1))
 
-    tags=$(cat "$(_shellb_command_get_tagfile_from_commandfile "${file}")" 2>/dev/null)
-    local user_dir
-    user_dir="$(dirname "${file}")"
-    user_dir=$(_shellb_core_calc_domainabs_to_user "${user_dir}" "${_SHELLB_DB_COMMANDS}")
-
-    local bookmarks
-    bookmarks=$(_shellb_get_userdir_bookmarks "${user_dir}" | tr '\n' ' ')
-
-    local command command_common
+    local tags="${file_to_tags["${file}"]}"
+    local bookmarks="${file_to_bookmarks["${file}"]}"
+    local command
     command=$(cat "${file}")
-
-    # calculate common and unique part between previous and current command
-    command_common=$(_shellb_core_calc_common_part "${command}" "${prev_command}" "$(cat "${shellb_command_print_lines_files[i]}" 2>/dev/null)")
-    local command_unique="${command#"${command_common}"}"
 
     [ "${show_bookmarks}" -eq 1 ] && printf "${_SHELLB_CFG_COLOR_LNK}%${max_bookmarks_length}s${_SHELLB_COLOR_NONE} " "${bookmarks}"
     [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s " "${tags}"
-    printf "%3s ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}\n" "${i}" "${command_common}" "${command_unique}"
-    prev_command="${command}"
+    printf "%3s ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}\n" "${i}" "${command}"
   done
 }
 

@@ -63,24 +63,63 @@ function _shellb_get_userdir_bookmarks() {
   return 0
 }
 
-function _shellb_pwd_bookmarks() {
+function _shellb_get_userdir_bookmarks_array() {
   local matching_files_array
-  local matching_files_string
-  mapfile -t matching_files_array < <(grep -Flx "$PWD" "${_SHELLB_DB_BOOKMARKS}"/*."${_SHELLB_CFG_BOOKMARK_EXT}")
+  local -n shellb_get_userdir_bookmarks_array_bookmarks=$1
+  local user_dir="${2}"
+  local file_glob="${3:-*}"
+  [ -n "${user_dir}" ] || { _shellb_print_err "user_dir not given"; return 1 ; }
+  mapfile -t matching_files_array < <(grep --include="${file_glob}" -d skip -Flx "${user_dir}" "${_SHELLB_DB_BOOKMARKS}"/*."${_SHELLB_CFG_BOOKMARK_EXT}")
 
   if [ ${#matching_files_array[@]} -ne 0 ]; then
     for file in "${matching_files_array[@]}"; do
       file=${file//"${_SHELLB_DB_BOOKMARKS}/"/}
       file=${file//.${_SHELLB_CFG_BOOKMARK_EXT}/}
-      file="${_SHELLB_CFG_COLOR_LNK}${file}${_SHELLB_COLOR_NONE}"
-      matching_files_string+="${file},"
+      shellb_get_userdir_bookmarks_array_bookmarks+=("${file}")
+    done
+    return 0
+  else
+    return 1
+  fi
+}
+
+function _shellb_get_userdir_bookmarks_string() {
+  local user_dir="${1}"
+  local file_glob="${2:-*}"
+  local -a shellb_get_userdir_bookmarks_string_bookmarks=()
+  local bookmarks_string=""
+  [ -n "${user_dir}" ] || { _shellb_print_err "user_dir not given"; return 1 ; }
+
+  _shellb_get_userdir_bookmarks_array shellb_get_userdir_bookmarks_string_bookmarks "${user_dir}" "${file_glob}"
+  [ ${#shellb_get_userdir_bookmarks_string_bookmarks[@]} -eq 0 ] && return 0
+
+  if [ ${#shellb_get_userdir_bookmarks_string_bookmarks[@]} -ne 0 ]; then
+    for bookmark in "${shellb_get_userdir_bookmarks_string_bookmarks[@]}"; do
+      bookmarks_string+="${bookmark}"
     done
     # Remove the trailing comma
-    matching_files_string=${matching_files_string%,}
-    echo "[${matching_files_string}]"
+    bookmarks_string=${bookmarks_string%,}
+    echo "${bookmarks_string}"
   else
     echo ""
   fi
+}
+
+function _shellb_pwd_bookmarks() {
+  local -a _shellb_pwd_bookmarks_bookmarks=()
+  _shellb_get_userdir_bookmarks_array _shellb_pwd_bookmarks_bookmarks "${PWD}"
+  [ ${#_shellb_pwd_bookmarks_bookmarks[@]} -eq 0 ] && return 0
+
+  local bookmarks_string="["
+  for bookmark in "${_shellb_pwd_bookmarks_bookmarks[@]}"; do
+    bookmark="${_SHELLB_CFG_COLOR_LNK}${bookmark}${_SHELLB_COLOR_NONE}"
+    bookmarks_string+="${bookmark},"
+  done
+  # Remove the trailing comma
+  bookmarks_string=${bookmarks_string%,}
+  bookmarks_string+="]"
+
+  echo "${bookmarks_string}"
 }
 
 function shellb_bookmark_set() {

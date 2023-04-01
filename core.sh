@@ -283,9 +283,8 @@ function _shellb_core_calc_user_to_domainabs() {
   echo "${domain}/${file_user}" | tr -s /
 }
 
-# Translates absolute dir/file path into protocol path
-# Translates absolute dir/file path into protocol path
-# ${1} - absolute dir/file path (under domain)
+# Translates absolute dir/file of shellb domain resource path to user path
+# ${1} - absolute dir/file path (user dir or file)
 # ${2} - domain
 function _shellb_core_calc_domainabs_to_user() {
   _shellb_print_dbg "_shellb_core_calc_domainabs_to_user($*)"
@@ -297,9 +296,8 @@ function _shellb_core_calc_domainabs_to_user() {
   echo "${path}"
 }
 
-# Translates absolute dir/file path into protocol path
-# Translates absolute dir/file path into protocol path
-# ${1} - absolute dir/file path (under domain)
+# Translates user dir/file path into protocol shellb domain resource path
+# ${1} - absolute dir/file path (under shellb domain)
 # ${2} - domain
 function _shellb_core_calc_proto_from_domainabs() {
   _shellb_print_dbg "_shellb_core_calc_proto_from_domainabs($*)"
