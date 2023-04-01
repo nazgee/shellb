@@ -81,6 +81,9 @@ _SHELLB_CFG_RC_DEFAULT=\
 # if that's not what you want.
 export shellb_notepad_editor=editor
 
+# Uncomment to enable prompt update with a bookmark that
+# matches current working directory
+# SHELLB_PROMPT_UPDATE=1
 
 ###################### aliases ############################
 # Any alias here will have functional shell completion
@@ -291,5 +294,6 @@ _shellb_update_ps1() {
   PS1="$(_shellb_pwd_bookmarks)${_SHELLB_ORIGINAL_PS1}"
 }
 
+
 # Update the PS1 every time a command is executed
-PROMPT_COMMAND="_shellb_update_ps1; ${PROMPT_COMMAND}"
+[ ${SHELLB_PROMPT_UPDATE:-0} -eq 1 ] && PROMPT_COMMAND="_shellb_update_ps1; ${PROMPT_COMMAND}"
