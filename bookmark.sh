@@ -150,15 +150,15 @@ function shellb_bookmark_edit() {
   # check if given bookmark exists
   [ -e "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" ] || _shellb_print_err "edit bookmark failed, unknown bookmark: \"${1}\"" || return 1
 
-  local bookmark="${1}"
+  local oldbookmark="${1}"
   # get bookmarked directory
   local target
   target=$(_shellb_bookmark_get "${1}") || _shellb_print_err "edit bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
 
   # edit bookmark
-  read -r -e -p "bookmark name  : " -i "${bookmark}" bookmark || return 1
+  read -r -e -p "bookmark name  : " -i "${oldbookmark}" bookmark || return 1
   read -r -e -p "bookmark target: " -i "${target}" target || return 1
-  shellb_bookmark_set "${bookmark}" "${target}" || return 1
+  shellb_bookmark_set "${bookmark}" "${target}" && shellb_bookmark_del "${oldbookmark}" 1 || return 1
 }
 
 function shellb_bookmark_get_short() {
