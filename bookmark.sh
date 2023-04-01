@@ -64,21 +64,27 @@ function _shellb_get_userdir_bookmarks() {
 }
 
 function _shellb_pwd_bookmarks() {
-    local matching_files
-    matching_files=$(grep -Flx "$PWD" "${_SHELLB_DB_BOOKMARKS}"/*."${_SHELLB_CFG_BOOKMARK_EXT}")
+  local matching_files_array
+  local matching_files_string
+  mapfile -t matching_files_array < <(grep -Flx "$PWD" "${_SHELLB_DB_BOOKMARKS}"/*."${_SHELLB_CFG_BOOKMARK_EXT}")
 
-    if [ -n "$matching_files" ]; then
-        matching_files=${matching_files//"${_SHELLB_DB_BOOKMARKS}/"/}
-        matching_files=${matching_files//.${_SHELLB_CFG_BOOKMARK_EXT}/}
-        matching_files=${matching_files//$'\n'/,}
-        echo "[${matching_files}]"
-    else
-        echo ""
-    fi
+  if [ ${#matching_files_array[@]} -ne 0 ]; then
+    for file in "${matching_files_array[@]}"; do
+      file=${file//"${_SHELLB_DB_BOOKMARKS}/"/}
+      file=${file//.${_SHELLB_CFG_BOOKMARK_EXT}/}
+      file="${_SHELLB_CFG_COLOR_LNK}${file}${_SHELLB_COLOR_NONE}"
+      matching_files_string+="${file},"
+    done
+    # Remove the trailing comma
+    matching_files_string=${matching_files_string%,}
+    echo "[${matching_files_string}]"
+  else
+    echo ""
+  fi
 }
 
 function shellb_bookmark_set() {
-  _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
+  _shellb_print_dbg "_shellb_bookmark_set($*)"
   local bookmark_name="${1}"
   local bookmark_target="${2:-$(pwd)}"
   local bookmark_file
@@ -156,7 +162,7 @@ function shellb_bookmark_edit() {
 }
 
 function shellb_bookmark_get_short() {
-  _shellb_print_dbg "shellb_bookmark_get_short(${1})"
+  _shellb_print_dbg "shellb_bookmark_get_short($*)"
 
   # check if bookmark name is given
   [ -n "${1}" ] || _shellb_print_err "get bookmark failed, no bookmark name given" || return 1
@@ -179,7 +185,7 @@ function _shellb_bookmark_print_long() {
 }
 
 function shellb_bookmark_get_long() {
-  _shellb_print_dbg "shellb_bookmark_get_long(${1})"
+  _shellb_print_dbg "shellb_bookmark_get_long($*)"
 
   # check if bookmark is known, and save it in target
   local target
@@ -205,7 +211,7 @@ function shellb_bookmark_list_long() {
   done
   (( 4 > bookmarks_len )) && bookmarks_len=4
 
-  printf "LIVE | %-${bookmarks_len}s | IDX | TARGET\n" "NAME"
+  printf "LIVE %-${bookmarks_len}s IDX TARGET\n" "NAME"
   # print out bookmarks
   local prev_target prev_bookmark target_common bookmark_common
   for ((i=0; i<${#shellb_bookmark_list_long_bookmarks[@]}; i++)); do
@@ -222,10 +228,10 @@ function shellb_bookmark_list_long() {
     local bookmark_unique="${bookmark#"${bookmark_common}"}"
 
     if _shellb_bookmark_is_alive "${bookmark}"; then
-      printf "  ${_SHELLB_CFG_SYMBOL_CHECK}  | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%-$((bookmarks_len - ${#bookmark_common}))s | %3s | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" \
+      printf "  ${_SHELLB_CFG_SYMBOL_CHECK}  ${_SHELLB_CFG_COLOR_LNK_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_LNK}%-$((bookmarks_len - ${#bookmark_common}))s${_SHELLB_COLOR_NONE} %3s ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_DIR_UNDER}%s${_SHELLB_COLOR_NONE}\n" \
         "${bookmark_common}" "${bookmark_unique}" "$((i+1))" "${target_common}" "${target_unique}"
     else
-      printf "  ${_SHELLB_CFG_COLOR_ERR}${_SHELLB_CFG_SYMBOL_CROSS}${_SHELLB_COLOR_NONE}  | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%-$((bookmarks_len - ${#bookmark_common}))s | ${_SHELLB_CFG_COLOR_ERR}%3s${_SHELLB_COLOR_NONE} | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" \
+      printf "  ${_SHELLB_CFG_COLOR_BAD}${_SHELLB_CFG_SYMBOL_CROSS}${_SHELLB_COLOR_NONE}  ${_SHELLB_CFG_COLOR_LNK_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_LNK}%-$((bookmarks_len - ${#bookmark_common}))s${_SHELLB_COLOR_NONE} ${_SHELLB_CFG_COLOR_BAD}%3s${_SHELLB_COLOR_NONE} ${_SHELLB_CFG_COLOR_DIR_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}\n" \
         "${bookmark_common}" "${bookmark_unique}" "$((i+1))" "${target_common}" "${target_unique}"
     fi
 
@@ -289,7 +295,7 @@ function shellb_bookmark_list_edit() {
 }
 
 function shellb_bookmark_list_purge() {
-  _shellb_print_dbg "shellb_bookmark_listpurge(${1})"
+  _shellb_print_dbg "shellb_bookmark_listpurge($*)"
 
   _shellb_core_user_get_confirmation "This will remove \"dead\" bookmarks. Bookmarks to accessible directories will be kept unchanged. Proceed?" || return 0
 

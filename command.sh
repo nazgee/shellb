@@ -296,12 +296,12 @@ function _shellb_command_print_lines() {
     max_bookmarks_length=${#header_bookmarks}
   }
 
-  [ "${show_bookmarks}" -eq 1 ] && printf "%${max_bookmarks_length}s| " "${header_bookmarks}"
-  [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s | " "${header_tags}"
+  [ "${show_bookmarks}" -eq 1 ] && printf "%${max_bookmarks_length}s " "${header_bookmarks}"
+  [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s " "${header_tags}"
 
   # print lines
   local prev_command=""
-  printf "%s | %s\n" "${header_index}" "${header_command}"
+  printf "%s %s\n" "${header_index}" "${header_command}"
   for file in "${shellb_command_print_lines_files[@]}"; do
     i=$((i+1))
 
@@ -320,9 +320,9 @@ function _shellb_command_print_lines() {
     command_common=$(_shellb_core_calc_common_part "${command}" "${prev_command}" "$(cat "${shellb_command_print_lines_files[i]}" 2>/dev/null)")
     local command_unique="${command#"${command_common}"}"
 
-    [ "${show_bookmarks}" -eq 1 ] && printf "%${max_bookmarks_length}s| " "${bookmarks}"
-    [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s | " "${tags}"
-    printf "%3s | ${_SHELLB_CFG_COLOR_REF}%s${_SHELLB_COLOR_NONE}%s\n" "${i}" "${command_common}" "${command_unique}"
+    [ "${show_bookmarks}" -eq 1 ] && printf "${_SHELLB_CFG_COLOR_LNK}%${max_bookmarks_length}s${_SHELLB_COLOR_NONE} " "${bookmarks}"
+    [ "${show_tags}" -eq 1 ] && printf "%${max_tag_length}s " "${tags}"
+    printf "%3s ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}\n" "${i}" "${command_common}" "${command_unique}"
     prev_command="${command}"
   done
 }

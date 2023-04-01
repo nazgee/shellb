@@ -115,9 +115,10 @@ function shellb_notepad_list() {
 
   # print note files
   local i=0
+  printf "IDX NOTE\n"
   for note in "${shellb_notepad_list_notes[@]}"; do
     i=$((i+1))
-    printf "%3s) | %s\n" "${i}" "${note}"
+    printf "%3s %s\n" "${i}" "${note}"
   done
 }
 

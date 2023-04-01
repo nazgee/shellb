@@ -1,14 +1,15 @@
-# Shell Bookmarks for BASH (c) 2023 Michal Stawinski, Version 1
+# shellb - bookmarks, commands and notes manager for bash
+# (c) 2023 Michal Stawinski, version 0.99
+# Idea based on DirB (Directory Bookmarks for BASH (c) 2009-2010 by Ira Chayut)
 #
-# Concept based on DirB / Directory Bookmarks for BASH (c) 2009-2010 by Ira Chayut
+# To integrate with your shell, save this shellb files <ANYWHERE>, and add the following line to ~/.bashrc:
+#    source <ANYWHERE>/shellb.sh
 #
-# To add to your bass, save this file <ANYWHERE>, and add the following line to ~/.bashrc:
-#
-#        source <ANYWHERE>/shellb.sh
+# After restarting your terminal, try "shellb help" for help.
 
 
 ###############################################
-# Variables
+# globals
 ###############################################
 # paths
 _SHELLB_RC="$(realpath -q ~/.shellbrc)"
@@ -17,19 +18,9 @@ _SHELLB_ALIASES=""
 
 # colors
 _SHELLB_COLOR_NONE="\e[m"
-_SHELLB_COLOR_BLUE="\e[00;34m"
-_SHELLB_COLOR_CYAN="\e[00;36m"
 _SHELLB_COLOR_GREEN="\e[00;32m"
-_SHELLB_COLOR_PURPLE="\e[00;35m"
 _SHELLB_COLOR_RED="\e[00;31m"
-_SHELLB_COLOR_WHITE="\e[00;37m"
-_SHELLB_COLOR_YELLOW="\e[00;33m"
-_SHELLB_COLOR_BLUE_B="\e[01;34m"
-_SHELLB_COLOR_CYAN_B="\e[01;36m"
-_SHELLB_COLOR_GREEN_B="\e[01;32m"
-_SHELLB_COLOR_PURPLE_B="\e[01;35m"
 _SHELLB_COLOR_RED_B="\e[01;31m"
-_SHELLB_COLOR_WHITE_B="\e[01;37m"
 _SHELLB_COLOR_YELLOW_B="\e[01;33m"
 
 # symbols
@@ -40,16 +31,26 @@ _SHELLB_SYMBOL_CROSS="\u2716"
 # TODO try not clashing with themes
 _SHELLB_CFG_DEBUG=0
 _SHELLB_CFG_COLOR_NFO=""
-
 _SHELLB_CFG_COLOR_WRN=${_SHELLB_COLOR_YELLOW_B}
 _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
 
 # Try to get colors from LS_COLORS. Use green if not available.
-[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_REF=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]di=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_REF="\e[${_SHELLB_CFG_COLOR_REF}m" || _SHELLB_CFG_COLOR_REF=${_SHELLB_COLOR_GREEN}
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_DIR=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]di=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_DIR="\e[${_SHELLB_CFG_COLOR_DIR}m" || _SHELLB_CFG_COLOR_DIR=${_SHELLB_COLOR_NONE}
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_DIR_UNDER=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]di=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_DIR_UNDER="\e[${_SHELLB_CFG_COLOR_DIR_UNDER};4m" || _SHELLB_CFG_COLOR_DIR_UNDER=${_SHELLB_COLOR_NONE}
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_EXE=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]ex=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_EXE="\e[${_SHELLB_CFG_COLOR_EXE}m" || _SHELLB_CFG_COLOR_EXE=${_SHELLB_COLOR_NONE}
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_EXE_UNDER=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]ex=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_EXE_UNDER="\e[${_SHELLB_CFG_COLOR_EXE_UNDER};4m" || _SHELLB_CFG_COLOR_EXE_UNDER=${_SHELLB_COLOR_NONE}
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_LNK=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]ln=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_LNK="\e[${_SHELLB_CFG_COLOR_LNK}m" || _SHELLB_CFG_COLOR_LNK=${_SHELLB_COLOR_GREEN}
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_LNK_UNDER=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]ln=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_LNK_UNDER="\e[${_SHELLB_CFG_COLOR_LNK_UNDER};4m" || _SHELLB_CFG_COLOR_LNK_UNDER=${_SHELLB_COLOR_GREEN}
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_BAD=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]or=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_BAD="\e[${_SHELLB_CFG_COLOR_BAD}m" || _SHELLB_CFG_COLOR_BAD=${_SHELLB_COLOR_RED}
 
 # test colors by printing something using them
-# echo -e "${_SHELLB_CFG_COLOR_REF}_SHELLB_CFG_COLOR_REF${_SHELLB_COLOR_NONE}"
-
+echo -e "${_SHELLB_CFG_COLOR_DIR}_SHELLB_CFG_COLOR_DIR${_SHELLB_COLOR_NONE}"
+echo -e "${_SHELLB_CFG_COLOR_DIR_UNDER}_SHELLB_CFG_COLOR_DIR_UNDER${_SHELLB_COLOR_NONE}"
+echo -e "${_SHELLB_CFG_COLOR_LNK}_SHELLB_CFG_COLOR_LNK${_SHELLB_COLOR_NONE}"
+echo -e "${_SHELLB_CFG_COLOR_LNK_UNDER}_SHELLB_CFG_COLOR_LNK_UNDER${_SHELLB_COLOR_NONE}"
+echo -e "${_SHELLB_CFG_COLOR_EXE}_SHELLB_CFG_COLOR_EXE${_SHELLB_COLOR_NONE}"
+echo -e "${_SHELLB_CFG_COLOR_EXE_UNDER}_SHELLB_CFG_COLOR_EXE_UNDER${_SHELLB_COLOR_NONE}"
+echo -e "${_SHELLB_CFG_COLOR_BAD}_SHELLB_CFG_COLOR_BAD${_SHELLB_COLOR_NONE}"
 
 _SHELLB_CFG_SYMBOL_CHECK=${_SHELLB_SYMBOL_CHECK}
 _SHELLB_CFG_SYMBOL_CROSS=${_SHELLB_SYMBOL_CROSS}
@@ -57,16 +58,10 @@ _SHELLB_CFG_LOG_PREFIX="shellb | "
 _SHELLB_CFG_PROTO="shellb://"
 _SHELLB_CFG_NOTE_FILE="note.md"
 
-blue=$(tput setaf 4)
-normal=$(tput sgr0)
-
 _SHELLB_CFG_BOOKMARK_EXT="shellbbookmark"
 _SHELLB_CFG_BOOKMARK_TAG_EXT="shellbbkmtag"
-
 _SHELLB_CFG_COMMAND_EXT="shellbcommand"
 _SHELLB_CFG_COMMAND_TAG_EXT="shellbcmdtag"
-
-_SHELLB_CFG_HELP_RELOAD="invoke \"shellb reload-config\" to reload config from \"${_SHELLB_RC}\""
 
 _SHELLB_CFG_RC_DEFAULT=\
 "
@@ -143,10 +138,11 @@ alias cmra='shellb command run --recursive /'
 _SHELLB_SOURCE_LOCATION="${BASH_SOURCE[0]}"
 
 # check if required tools are available
-[ -e "$(command -v uuidgen)" ] || _shellb_print_err "find not found. Please install uuid-runtime and ${_SHELLB_CFG_HELP_RELOAD}"
-[ -e "$(command -v sed)" ] || _shellb_print_err "sed not found. Please install sed and ${_SHELLB_CFG_HELP_RELOAD}"
-[ -e "$(command -v awk)" ] || _shellb_print_err "awk not found. Please install awk and ${_SHELLB_CFG_HELP_RELOAD}"
-[ -e "$(command -v diff)" ] || _shellb_print_err "diff not found. Please install diffutils and ${_SHELLB_CFG_HELP_RELOAD}"
+_SHELLB_PROMPT_RELOAD="invoke \"shellb reload-config\" to reload config from \"${_SHELLB_RC}\""
+[ -e "$(command -v uuidgen)" ] || _shellb_print_err "find not found. Please install uuid-runtime and ${_SHELLB_PROMPT_RELOAD}"
+[ -e "$(command -v sed)" ] || _shellb_print_err "sed not found. Please install sed and ${_SHELLB_PROMPT_RELOAD}"
+[ -e "$(command -v awk)" ] || _shellb_print_err "awk not found. Please install awk and ${_SHELLB_PROMPT_RELOAD}"
+[ -e "$(command -v diff)" ] || _shellb_print_err "diff not found. Please install diffutils and ${_SHELLB_PROMPT_RELOAD}"
 
 # provide default config it not present
 [ -e "${_SHELLB_RC}" ] || _shellb_print_wrn_fail "creating default config: ${_SHELLB_RC}" \
@@ -159,7 +155,6 @@ source "${_SHELLB_RC}"
 ###############################################
 # core functions
 ###############################################
-
 function _shellb_module_invoke() {
   local function_name module_name
   _shellb_print_dbg "_shellb_module_invoke($*)"
@@ -260,8 +255,6 @@ for module in "${_SHELLB_MODULES[@]}"; do
   _shellb_print_dbg "loaded ${module}"
 done
 
-
-
 ###############################################
 # completions installation
 ###############################################
@@ -293,7 +286,6 @@ shellb_completions_install
 _shellb_update_ps1() {
   PS1="$(_shellb_pwd_bookmarks)${_SHELLB_ORIGINAL_PS1}"
 }
-
 
 # Update the PS1 every time a command is executed
 [ ${SHELLB_PROMPT_UPDATE:-0} -eq 1 ] && PROMPT_COMMAND="_shellb_update_ps1; ${PROMPT_COMMAND}"
