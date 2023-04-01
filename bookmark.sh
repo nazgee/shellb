@@ -213,30 +213,26 @@ function shellb_bookmark_list_long() {
 
   printf "%-${bookmarks_len}s IDX TARGET\n" "NAME"
   # print out bookmarks
-  local prev_target prev_bookmark target_common bookmark_common
   for ((i=0; i<${#shellb_bookmark_list_long_bookmarks[@]}; i++)); do
     local bookmark="${shellb_bookmark_list_long_bookmarks[i]}"
     local target
-    target=$(shellb_bookmark_get_short "${bookmark}") || return 1 # error message already printed
+#    target=$(shellb_bookmark_get_short "${bookmark}") || return 1 # error message already printed
+    # we could use shellb_bookmark_get_short here, but it would be much slower, as it uses subshell, realpath, etc.
+    # and does a lot of sanity checks that we don't need here. Let's make it faster by using direct access to bookmarks
+    target=$(cat "${_SHELLB_DB_BOOKMARKS}/${bookmark}.${_SHELLB_CFG_BOOKMARK_EXT}") || {
+      _shellb_print_err "failed to read bookmark target from ${_SHELLB_DB_BOOKMARKS}/${bookmark}.${_SHELLB_CFG_BOOKMARK_EXT}"
+      return 1
+    }
 
-    # calculate common and unique part between previous and current target
-    target_common=$(_shellb_core_calc_common_part "${target}" "${prev_target}" "$(shellb_bookmark_get_short "${shellb_bookmark_list_long_bookmarks[i+1]}" 2>/dev/null)")
-    # target_common=$(_shellb_core_calc_common_part_sticky "${prev_target}" "${target}" "${target_common}")
-    local target_unique="${target#"${target_common}"}"
-    # calculate common and unique part between previous and current bookmark
-    bookmark_common=$(_shellb_core_calc_common_part_sticky "${prev_bookmark}" "${bookmark}" "${bookmark_common}")
-    local bookmark_unique="${bookmark#"${bookmark_common}"}"
-
-    if _shellb_bookmark_is_alive "${bookmark}"; then
-      printf "${_SHELLB_CFG_COLOR_LNK_UNDER}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_LNK}%-$((bookmarks_len - ${#bookmark_common}))s${_SHELLB_COLOR_NONE} %3s ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}${_SHELLB_CFG_COLOR_DIR_UNDER}%s${_SHELLB_COLOR_NONE}\n" \
-        "${bookmark_common}" "${bookmark_unique}" "$((i+1))" "${target_common}" "${target_unique}"
+    # we could use shellb_bookmark_is_alive here, but it would be much slower, as it uses subshell, realpath, etc.
+    # and does a lot of sanity checks that we don't need here. Let's make it faster by using direct access to bookmarks
+    if [[ -d "${target}" ]]; then
+      printf "${_SHELLB_CFG_COLOR_LNK}%-${bookmarks_len}s${_SHELLB_COLOR_NONE} %3s ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}\n" \
+        "${bookmark}" "$((i+1))" "${target}"
     else
-      printf "${_SHELLB_CFG_COLOR_BAD}%s%-$((bookmarks_len - ${#bookmark_common}))s %3s %s %s${_SHELLB_COLOR_NONE}\n" \
-        "${bookmark_common}" "${bookmark_unique}" "$((i+1))" "${target_common}" "${target_unique}"
+      printf "${_SHELLB_CFG_COLOR_BAD}%-${bookmarks_len}s %3s %s${_SHELLB_COLOR_NONE}\n" \
+        "${bookmark}" "$((i+1))" "${target}"
     fi
-
-    prev_bookmark=${bookmark}
-    prev_target=${target}
   done
 }
 
