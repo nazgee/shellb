@@ -40,10 +40,17 @@ _SHELLB_SYMBOL_CROSS="\u2716"
 # TODO try not clashing with themes
 _SHELLB_CFG_DEBUG=0
 _SHELLB_CFG_COLOR_NFO=""
+
 _SHELLB_CFG_COLOR_WRN=${_SHELLB_COLOR_YELLOW_B}
 _SHELLB_CFG_COLOR_ERR=${_SHELLB_COLOR_RED_B}
-_SHELLB_CFG_COLOR_ROW=${_SHELLB_COLOR_GREEN}
-_SHELLB_CFG_COLOR_REF=${_SHELLB_COLOR_GREEN}
+
+# Try to get colors from LS_COLORS. Use green if not available.
+[[ -n "$LS_COLORS" ]] && _SHELLB_CFG_COLOR_REF=$(echo "$LS_COLORS" | sed -n 's/.*\([:^]di=\)\([^:]*\).*/\2/p') && _SHELLB_CFG_COLOR_REF="\e[${_SHELLB_CFG_COLOR_REF}m" || _SHELLB_CFG_COLOR_REF=${_SHELLB_COLOR_GREEN}
+
+# test colors by printing something using them
+# echo -e "${_SHELLB_CFG_COLOR_REF}_SHELLB_CFG_COLOR_REF${_SHELLB_COLOR_NONE}"
+
+
 _SHELLB_CFG_SYMBOL_CHECK=${_SHELLB_SYMBOL_CHECK}
 _SHELLB_CFG_SYMBOL_CROSS=${_SHELLB_SYMBOL_CROSS}
 _SHELLB_CFG_LOG_PREFIX="shellb | "
@@ -62,9 +69,69 @@ _SHELLB_CFG_COMMAND_TAG_EXT="shellbcmdtag"
 _SHELLB_CFG_HELP_RELOAD="invoke \"shellb reload-config\" to reload config from \"${_SHELLB_RC}\""
 
 _SHELLB_CFG_RC_DEFAULT=\
-'
-# TODO add config here
-'
+"
+##################### shellb config file ##################
+# v 0.99
+
+###################### general ############################
+# Configure editor that will be used for \"shellb note edit\"
+#
+# In debian distros, \"editor\" is translated to user's
+# preferred editor. Force sht like \"vim\" or \"nano\" here
+# if that's not what you want.
+export shellb_notepad_editor=editor
+
+
+###################### aliases ############################
+# Any alias here will have functional shell completion
+# (TAB key arguments expansion). It is recommended to add
+# aliases for shellb here, instead of ~/.bash_aliases.
+#
+# Change/add/remove aliases as desired, but avoid clashing
+# with aliases/functions/binaries available on your system.
+# (.e.g. \"ls\" or \"bg\" are not the best candidates)
+#
+# Names provided here by default should be safe/free
+# on most of the systems, but double-check if it's the
+# case for your system.
+
+## 'core' aliases
+alias shh='shellb'
+
+## 'bookmark' aliases
+alias bn='shellb bookmark new'
+alias bl='shellb bookmark list'
+alias d='shellb bookmark del'
+alias g='shellb bookmark go'
+alias bp='shellb bookmark purge'
+
+## 'notepad' aliases
+alias npe='shellb note edit'
+alias npea='shellb note edit /'
+alias npl='shellb note list'
+alias npd='shellb note del'
+alias npc='shellb note cat'
+
+## 'command' aliases
+alias cmn='shellb command new'
+alias cms='shellb command save'
+
+alias cml='shellb command list --current'
+alias cmlr='shellb command list --recursive'
+alias cmla='shellb command list --recursive /'
+
+alias cme='shellb command edit --current'
+alias cmer='shellb command edit --recursive'
+alias cmea='shellb command edit --recursive /'
+
+alias cmd='shellb command del --current'
+alias cmdr='shellb command del --recursive'
+alias cmda='shellb command del --recursive /'
+
+alias cmr='shellb command run --current'
+alias cmrr='shellb command run --recursive'
+alias cmra='shellb command run --recursive /'
+"
 
 ###############################################
 # init
