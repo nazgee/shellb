@@ -63,6 +63,20 @@ function _shellb_get_userdir_bookmarks() {
   return 0
 }
 
+function _shellb_pwd_bookmarks() {
+    local matching_files
+    matching_files=$(grep -Flx "$PWD" "${_SHELLB_DB_BOOKMARKS}"/*."${_SHELLB_CFG_BOOKMARK_EXT}")
+
+    if [ -n "$matching_files" ]; then
+        matching_files=${matching_files//"${_SHELLB_DB_BOOKMARKS}/"/}
+        matching_files=${matching_files//.${_SHELLB_CFG_BOOKMARK_EXT}/}
+        matching_files=${matching_files//$'\n'/,}
+        echo "[${matching_files}]"
+    else
+        echo ""
+    fi
+}
+
 function shellb_bookmark_set() {
   _shellb_print_dbg "_shellb_bookmark_set(${1}, ${2})"
   local bookmark_name="${1}"

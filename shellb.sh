@@ -212,3 +212,17 @@ _shellb_print_dbg "load complete_alias"
 source "$(dirname "${_SHELLB_SOURCE_LOCATION})")/complete_alias"
 _shellb_print_dbg "register completions"
 shellb_completions_install
+
+###############################################
+# prompt integration
+###############################################
+# Backup the original PS1
+[ -z "${_SHELLB_ORIGINAL_PS1}" ] && export _SHELLB_ORIGINAL_PS1="${PS1}"
+
+# Function to update PS1 with the bookmark info
+_shellb_update_ps1() {
+  PS1="$(_shellb_pwd_bookmarks)${_SHELLB_ORIGINAL_PS1}"
+}
+
+# Update the PS1 every time a command is executed
+PROMPT_COMMAND="_shellb_update_ps1; ${PROMPT_COMMAND}"
