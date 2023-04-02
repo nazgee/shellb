@@ -328,6 +328,250 @@ function _shellb_core_completion_to_dir() {
   dirname "${completion}"
 }
 
+# Interactively filter provided data until single line is left.
+# Assign filtered result into variable provided as second arg.
+# ${1} - multline data to filter
+# ${2} - output variable name (matched string)
+# ${3} - output variable name (matched string index)
+# ${4} - instructions string
+# ${5} - prompt string to show while still searching
+# ${6} - prompt string to show when found
+# return 0 if matched and confirmed with ENTER, non-zero if interrupted with CTRL+c or ESC
+function _shellb_core_interactive_filter() {
+  local search_term=""
+  local exit_code=1
+  local input_data="$1"
+  local -n _shellb_core_interactive_filter_output=$2
+  local -n _shellb_core_interactive_filter_output_index=$3
+  local instructions="$4"
+  local prompt_search="$5"
+  local prompt_confirm="$6"
+  local interrupted=0
+  local resized=0
+
+  # if there is only one line, return it
+  # but succeed only if it is not empty
+  if [[ $(echo "$input_data" | wc -l) -eq 1 ]]; then
+    _shellb_core_interactive_filter_output="$input_data"
+    _shellb_core_interactive_filter_output_index=1
+    if [[ ${#_shellb_core_interactive_filter_output} -gt 0 ]]; then
+      return 0
+    else
+      return 1
+    fi
+  fi
+
+  # Save the current terminal settings
+  local _shellb_core_interactive_filter_stty_settings
+  _shellb_core_interactive_filter_stty_settings=$(stty -g)
+
+  tput smcup # so we don't pollute scrollback too much
+
+  function _shellb_core_interactive_filter_stty_default() {
+    stty "$_shellb_core_interactive_filter_stty_settings"
+  }
+
+  function _shellb_core_interactive_filter_stty_custom() {
+    stty -echo raw
+  }
+
+  function _shellb_core_interactive_filter_trap() {
+    interrupted=1
+  }
+
+  function _shellb_core_interactive_filter_resize_trap() {
+    resized=1
+  }
+
+  # returns:
+  #  0 - if single command is matched
+  #  1 - if multiple commands are matched
+  #  2 - if no commands are matched
+  function _shellb_core_interactive_filter_grep() {
+    # shellcheck disable=SC2206
+    local search_terms=(${1})
+    local filtered="$input_data"
+    local matched_lines
+
+    for term in "${search_terms[@]}"; do
+      filtered=$(echo "$filtered" | sed 's/\x1B[@A-Z\\\]^_]\|\x1B\[[0-9:;<=>?]*[-!"#$%&'"'"'()*+,.\/]*[][\\@A-Z^_`a-z{|}~]//g' |  grep -i --color=always "$term")
+    done
+
+    matched_lines=$(echo "$filtered" | wc -l)
+    if [[ ${matched_lines} -gt 1 ]]; then
+      echo "${filtered}"
+      return 1
+    else
+      # check if matched line is empty (no matches) or not (single match)
+      if [[ ${#filtered} -gt 0 ]]; then
+        echo "$filtered"
+        return 0
+      else
+        return 2
+      fi
+    fi
+  }
+
+  # returns:
+  #  0 - if single command is matched
+  #  1 - if multiple commands are matched
+  #  2 - if no commands are matched
+  function _shellb_core_interactive_filter_update_screen() {
+    local -n filtered
+    filtered="$1"
+    shift
+    local search_term="$1"
+    local prompt_search="$2"
+    local prompt_confirm="$3"
+    local terminal_rows
+    local terminal_cols
+    local matched=0
+
+    # Get terminal dimensions
+    terminal_rows=$(tput lines)
+    terminal_cols=$(tput cols)
+
+    # get the filtered lines
+    filtered=$(_shellb_core_interactive_filter_grep "$search_term")
+    matched=$?
+
+    # do not print anything if we got not matches (exit immediately)
+    [ ${matched} -eq 2 ] && return 2
+
+    tput civis # hide the cursor, so it doesn't flicker
+    tput cup 0 0 # move cursor to top left, so we can redraw the screen
+    # print padding lines to clear the screen
+    for ((i=0; i<((terminal_rows - $(echo "$filtered" | wc -l) ) - 2); i++)); do
+      printf "%-${terminal_cols}s\n" "."
+    done
+    # print filtered lines, but pad them to the terminal width (to clear old lines)
+    while IFS= read -r line; do
+      printf "%-${terminal_cols}s\n" "$line"
+    done <<< "${filtered}"
+
+    printf "%-${terminal_cols}s\n" " "
+    printf "%-${terminal_cols}s\n" " "
+    tput cup $((terminal_rows - 2)) 0 # move cursor to the bottom line
+    echo "$instructions"
+    local final_promopt
+    if [[ $matched -eq 0 ]]; then
+      printf "%s %s" "$prompt_confirm" "$search_term"
+    else
+      printf "%s %s" "$prompt_search" "$search_term"
+    fi
+
+    # Show the cursor
+    tput cnorm
+    return ${matched}
+  }
+
+  # Catch signals to restore terminal settings before exiting
+  trap _shellb_core_interactive_filter_trap INT
+  trap _shellb_core_interactive_filter_resize_trap WINCH
+
+  local input
+  while [[ $interrupted -eq 0 ]]; do
+    local matched
+    _shellb_core_interactive_filter_stty_default # default key/signals handling (so echo/print works normally)
+    _shellb_core_interactive_filter_update_screen _shellb_core_interactive_filter_output "$search_term" "$prompt_search" "$prompt_confirm"
+    matched=$?
+    if [[ ${matched} -eq 2 ]]; then
+      [ ${#search_term} -gt 0 ] && search_term="${search_term:0:-1}"
+      _shellb_core_interactive_filter_update_screen _shellb_core_interactive_filter_output "$search_term" "$prompt_search" "$prompt_confirm"
+      matched=$?
+    fi
+    _shellb_core_interactive_filter_stty_custom # custom key/signals handling (so we can read single chars)
+
+    while [[ ${interrupted} -eq 0 ]]; do
+      # we use a small timeout, so we can react to ctrl+c telling us to quit
+      # (users have a tendency to use it, when they want to abort a command)
+      IFS= read -r -n1 -t 0.1 input && break
+      # stop waiting for key press if we got a resize signal
+      [ ${resized} -eq 1 ] && break
+    done
+
+    # if we got a resize signal, redraw the screen immediately, and go back to reading input
+    [ ${resized} -eq 1 ] && {
+      resized=0
+      continue
+    }
+
+    # if we got an interrupt signal, exit immediately
+    [ ${interrupted} -eq 1 ] && {
+      break
+    }
+
+    # if we're not interrupted, we can handle the input
+    if [[ "${input}" == $'\x1b' ]]; then # handle ESC key
+      break
+    elif [[ "${input}" == $'\x7f' ]]; then # handle backspace key
+      [ ${#search_term} -gt 0 ] && search_term="${search_term:0:-1}"
+    elif [[ "${input}" == '' ]]; then # handle ENTER key
+      if [[ $matched -eq 0 ]]; then
+        exit_code=0
+        break
+      fi
+    else
+      search_term+="${input}"
+    fi
+   done
+  _shellb_core_interactive_filter_stty_default # default key/signals handling (so echo/print works normally)
+
+  # Remove the trap by resetting it to its default behavior
+  trap - INT
+  trap - WINCH
+  tput rmcup
+
+  # strip out colors before searching for matched row
+  _shellb_core_interactive_filter_output=$(echo "$_shellb_core_interactive_filter_output" | sed 's/\x1B[@A-Z\\\]^_]\|\x1B\[[0-9:;<=>?]*[-!"#$%&'"'"'()*+,.\/]*[][\\@A-Z^_`a-z{|}~]//g' )
+  input_data=$(echo "$input_data" | sed 's/\x1B[@A-Z\\\]^_]\|\x1B\[[0-9:;<=>?]*[-!"#$%&'"'"'()*+,.\/]*[][\\@A-Z^_`a-z{|}~]//g' )
+
+  # get the index of the selected line
+  if [[ $exit_code -eq 0 ]]; then
+    local row_number=1
+    while IFS= read -r line; do
+      [ "$line" == "$_shellb_core_interactive_filter_output" ] && {
+        _shellb_core_interactive_filter_output_index=$row_number
+        exit_code=0
+        break
+      }
+      row_number=$((row_number + 1))
+    done <<< "$input_data"
+  fi
+
+  return $exit_code
+}
+
+function shellb_foo() {
+  local shellb_foo_filtered_line shellb_foo_filtered_line_index
+  _shellb_print_dbg "shellb_foo($*)"
+  _shellb_foo "select bookmark to goto" shellb_foo_filtered_line shellb_foo_filtered_line_index "${@}" || return 1
+  echo "${shellb_foo_filtered_line}"
+  echo "${shellb_foo_filtered_line_index}"
+}
+
+function _shellb_foo() {
+  _shellb_print_dbg "_shellb_foo($*)"
+  local prompt="${1}"
+  shift
+  local -n _shellb_foo_filtered_line=$1
+  shift
+  local -n _shellb_foo_filtered_line_index=$1
+  shift
+  local -a _shellb_foo_bookmarks
+  local -a _shellb_foo_bookmarks_lines
+  local bookmarks_string
+
+  shellb_bookmark_list_long bookmarks_string _shellb_foo_bookmarks "$@" || return 1
+  bookmarks_string=$(echo "${bookmarks_string}" | tail -n +2)
+  _shellb_core_interactive_filter "$bookmarks_string" _shellb_foo_filtered_line _shellb_foo_filtered_line_index "instructions-$prompt" "prompt-search: " "prompt confirm: " || return 1
+
+  echo "${_shellb_foo_filtered_line}"
+  echo "${_shellb_foo_filtered_line_index}"
+  echo "${_shellb_foo_bookmarks[$_shellb_foo_filtered_line_index]}"
+}
+
+
 ######### compgen #############################
 
 # Generate mixture of user-directories and shellb-resources for completion
@@ -398,4 +642,3 @@ function _shellb_core_compgen() {
   compopt -o nospace
   COMPREPLY=( $(compgen -o nospace -W "${opts_dirs} ${opts_file} ${opts_resources} ${extra_opts}" -- ${cur}) )
 }
-

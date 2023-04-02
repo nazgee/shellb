@@ -235,6 +235,9 @@ function shellb_bookmark_get_long() {
 function shellb_bookmark_list_long() {
   _shellb_print_dbg "shellb_bookmark_list_long($*)"
 
+  local -n output_var=$1
+  shift
+
   # fetch all bookmarks or only those starting with given glob expression
   local -n shellb_bookmark_list_long_bookmarks=$1
   shift
@@ -250,30 +253,30 @@ function shellb_bookmark_list_long() {
   done
   (( 4 > bookmarks_len )) && bookmarks_len=4
 
-  printf "%-${bookmarks_len}s IDX TARGET\n" "NAME"
+  local formatted_output
+  printf -v formatted_output "%-${bookmarks_len}s IDX TARGET\n" "NAME"
+  output_var+=$formatted_output
+
   # print out bookmarks
   for ((i=0; i<${#shellb_bookmark_list_long_bookmarks[@]}; i++)); do
     local bookmark="${shellb_bookmark_list_long_bookmarks[i]}"
     local target
-#    target=$(shellb_bookmark_get_short "${bookmark}") || return 1 # error message already printed
-    # we could use shellb_bookmark_get_short here, but it would be much slower, as it uses subshell, realpath, etc.
-    # and does a lot of sanity checks that we don't need here. Let's make it faster by using direct access to bookmarks
     target=$(cat "${_SHELLB_DB_BOOKMARKS}/${bookmark}.${_SHELLB_CFG_BOOKMARK_EXT}") || {
       _shellb_print_err "failed to read bookmark target from ${_SHELLB_DB_BOOKMARKS}/${bookmark}.${_SHELLB_CFG_BOOKMARK_EXT}"
       return 1
     }
 
-    # we could use shellb_bookmark_is_alive here, but it would be much slower, as it uses subshell, realpath, etc.
-    # and does a lot of sanity checks that we don't need here. Let's make it faster by using direct access to bookmarks
     if [[ -d "${target}" ]]; then
-      printf "${_SHELLB_CFG_COLOR_LNK}%-${bookmarks_len}s${_SHELLB_COLOR_NONE} %3s ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}\n" \
+      printf -v formatted_output "${_SHELLB_CFG_COLOR_LNK}%-${bookmarks_len}s${_SHELLB_COLOR_NONE} %3s ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}\n" \
         "${bookmark}" "$((i+1))" "${target}"
     else
-      printf "${_SHELLB_CFG_COLOR_BAD}%-${bookmarks_len}s %3s %s${_SHELLB_COLOR_NONE}\n" \
+      printf -v formatted_output "${_SHELLB_CFG_COLOR_BAD}%-${bookmarks_len}s %3s %s${_SHELLB_COLOR_NONE}\n" \
         "${bookmark}" "$((i+1))" "${target}"
     fi
+    output_var+=$formatted_output
   done
 }
+
 
 function shellb_bookmark_list_short() {
   _shellb_print_dbg "shellb_bookmark_list_short($*)"
@@ -293,7 +296,9 @@ function _shellb_bookmark_select() {
   local -n _shellb_bookmark_select_bookmark=$1
   shift
   local -a _shellb_bookmark_select_bookmarks
-  shellb_bookmark_list_long _shellb_bookmark_select_bookmarks "${1}"  || return 1
+  local _shellb_bookmark_select_output
+  shellb_bookmark_list_long _shellb_bookmark_select_output _shellb_bookmark_select_bookmarks "${1}"  || return 1
+  echo "${_shellb_bookmark_select_output}"
 
   # if we have some bookmarks, let user choose
   local selection
@@ -418,7 +423,9 @@ function _shellb_bookmark_action() {
       ;;
     list)
       local -a _shellb_bookmark_action_list_dummy
-      shellb_bookmark_list_long _shellb_bookmark_action_list_dummy "$@"
+      local _shellb_bookmark_action_list_output
+      shellb_bookmark_list_long _shellb_bookmark_action_list_output _shellb_bookmark_action_list_dummy "$@"
+      echo "${_shellb_bookmark_action_list_output}"
       ;;
     purge)
       shellb_bookmark_list_purge "$@"
