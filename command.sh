@@ -132,29 +132,21 @@ function _shellb_command_exec_with_confirmation() {
 
 # Ask user to select a number from 1 to size of given array
 # and execute the command from a selected command file
-# ${1} - array with command files
+# ${1} - command file
 function _shellb_command_selection_exec() {
   _shellb_print_dbg "_shellb_command_selection_exec($*)"
-  local -a files
-  files=("${@}")
-  local index chosen_command final_command
-
-  _shellb_print_nfo "select command to execute:"
-  index=$(_shellb_core_user_get_number "${#files[@]}") || return 1
-  chosen_command="$(cat "${files[${index}-1]}")"
-
+  local chosen_cmdfile chosen_command
+  chosen_cmdfile="${1}"
+  chosen_command="$(cat "${chosen_cmdfile}")"
   _shellb_command_exec_with_confirmation "${chosen_command}"
 }
 
 function _shellb_command_selection_del() {
   _shellb_print_dbg "_shellb_command_selection_del($*)"
-  local -a files
-  files=("${@}")
-  local index chosen_command chosen_cmdfile chosen_tagfile
+  local chosen_cmdfile chosen_tagfile chosen_command
+  chosen_cmdfile="${1}"
+  chosen_command="$(cat "${chosen_cmdfile}")"
 
-  _shellb_print_nfo "select command to delete:"
-  index=$(_shellb_core_user_get_number "${#files[@]}") || return 1
-  chosen_cmdfile="${files[${index}-1]}"
   chosen_tagfile="$(_shellb_command_get_tagfile_from_commandfile "${chosen_cmdfile}")"
   chosen_command="$(cat "${chosen_cmdfile}")"
 
@@ -171,24 +163,19 @@ function _shellb_command_selection_del() {
 # ${1} - array with command files
 function _shellb_command_selection_edit() {
   _shellb_print_dbg "_shellb_command_selection_edit($*)"
-  local -a files
-  files=("${@}")
-  local index command tag chosen_file user_dir user_path uuid_file
+  local chosen_cmdfile chosen_command tag user_dir user_path uuid_file
+  chosen_cmdfile="${1}"
+  chosen_command="$(cat "${chosen_cmdfile}")"
 
-  _shellb_print_nfo "select command to edit:"
-  index=$(_shellb_core_user_get_number "${#files[@]}") || return 1
-  chosen_file="${files[${index}-1]}"
-  command="$(cat "${chosen_file}")"
-
-  user_path=$(_shellb_core_calc_domainabs_to_user "${chosen_file}" "${_SHELLB_DB_COMMANDS}")
+  user_path=$(_shellb_core_calc_domainabs_to_user "${chosen_cmdfile}" "${_SHELLB_DB_COMMANDS}")
   user_dir="$(dirname "${user_path}")"
   uuid_file="$(basename "${user_path}")"
   uuid_file="${uuid_file%.*}"
-  tag="$(cat "$(dirname "${chosen_file}")/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
+  tag="$(cat "$(dirname "${chosen_cmdfile}")/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
   _shellb_print_nfo "edit command (edit & confirm with ENTER or cancel with ctrl-c)"
-  _shellb_command_edit_commandfile "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || {
-    _shellb_print_wrn "failed to edit command \"${command}\". Maybe \"${user_dir}\" is not a valid dir? Purge command with \"shellb command purge\""
+  _shellb_command_edit_commandfile "${user_dir}" "${chosen_command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || {
+    _shellb_print_wrn "failed to edit command \"${chosen_command}\". Maybe \"${user_dir}\" is not a valid dir? Purge command with \"shellb command purge\""
     return 1
   }
   _shellb_print_nfo "edit tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
@@ -432,6 +419,9 @@ function shellb_command_list() {
   _shellb_print_dbg "shellb_command_list($*)"
 
   # shellcheck disable=SC2034
+  local -n shellb_command_list_output=$1
+  shift
+  # shellcheck disable=SC2034
   local -n shellb_command_list_files=$1    2> /dev/null # ignore error if variable is not declared
   shift
 
@@ -467,7 +457,31 @@ function shellb_command_list() {
 
   # TODO add param to show list with duplicates -- this is useful when we want to delete command
   mapfile -t shellb_command_list_files< <(_shellb_command_sort_by_contents_and_deduplicate "${shellb_command_list_files[@]}")
-  _shellb_command_print_lines shellb_command_list_files "$@"
+  shellb_command_list_output=$(_shellb_command_print_lines shellb_command_list_files "$@")
+}
+
+# TODO merge with find
+function _shellb_command_list_select() {
+  _shellb_print_dbg "_shellb_command_list_select($*)"
+  local prompt="${1}"
+  shift
+  local -n _shellb_command_list_select_commandfile=$1
+  shift
+  local -a _shellb_command_list_select_commandfiles
+  local _shellb_command_list_select_output
+  local _shellb_command_list_select_selection
+  local _shellb_command_list_select_selection_index
+  shellb_command_list _shellb_command_list_select_output _shellb_command_list_select_commandfiles "$@"  || return 1
+
+  # TODO pass header to interactive filter
+  # do not show the first line (header)
+  _shellb_command_list_select_output=$(echo "${_shellb_command_list_select_output}" | tail -n +2)
+
+  _shellb_core_interactive_filter "${_shellb_command_list_select_output}" _shellb_command_list_select_selection _shellb_command_list_select_selection_index \
+    "$prompt" "search terms: " "matched: " || return 1
+
+  # shellcheck disable=SC2034
+  _shellb_command_list_select_commandfile="${_shellb_command_list_select_commandfiles[_shellb_command_list_select_selection_index-1]}"
 }
 
 # Open a list of commands installed for given dir, and allow user to select which one to execute
@@ -476,14 +490,9 @@ function shellb_command_list_exec() {
   _shellb_print_dbg "shellb_command_list_exec($*)"
 
   # shellcheck disable=SC2034
-  local -a shellb_command_list_exec_files
-  # get list of commands
-  shellb_command_list shellb_command_list_exec_files "$@" || return 1
-  if [ ${#shellb_command_list_exec_files[@]} -eq 1 ]; then
-    _shellb_command_exec_with_confirmation "$(cat "${shellb_command_list_exec_files[0]}")"
-  else
-    _shellb_command_selection_exec "${shellb_command_list_exec_files[@]}"
-  fi
+  local shellb_command_list_exec_file
+  _shellb_command_list_select "select command to run" shellb_command_list_exec_file "$@" || return 1
+  _shellb_command_selection_exec "${shellb_command_list_exec_file}"
 }
 
 # Open a list of commands installed for given dir, and allow user to select one to edit
@@ -492,10 +501,9 @@ function shellb_command_list_edit() {
   _shellb_print_dbg "shellb_command_list_edit($*)"
 
   # shellcheck disable=SC2034
-  local -a shellb_command_list_edit_files
-  # get list of commands
-  shellb_command_list shellb_command_list_edit_files "$@" || return 1
-  _shellb_command_selection_edit "${shellb_command_list_edit_files[@]}"
+  local shellb_command_list_edit_file
+  _shellb_command_list_select "select command to edit" shellb_command_list_edit_file "$@" || return 1
+  _shellb_command_selection_edit "${shellb_command_list_edit_file}"
 }
 
 # Open a list of commands installed for given dir, and allow user to select one to delete
@@ -503,11 +511,9 @@ function shellb_command_list_edit() {
 function shellb_command_list_del() {
   _shellb_print_dbg "shellb_command_list_del($*)"
 
-  # shellcheck disable=SC2034
-  local -a shellb_command_list_del_files
-  # get list of commands
-  shellb_command_list shellb_command_list_del_files "$@" || return 1
-  _shellb_command_selection_del "${shellb_command_list_del_files[@]}"
+  local shellb_command_list_del_file
+  _shellb_command_list_select "select command to delete" shellb_command_list_del_file "$@" || return 1
+  _shellb_command_selection_del "${shellb_command_list_del_file}"
 }
 
 ###############################################
@@ -522,6 +528,9 @@ function shellb_command_list_del() {
 function shellb_command_find() {
   _shellb_print_dbg "shellb_command_find($*)"
 
+  # shellcheck disable=SC2034
+  local -n shellb_command_find_output=$1
+  shift
   # shellcheck disable=SC2034
   local -n shellb_command_find_files=$1    2> /dev/null # ignore error if variable is not declared
   shift
@@ -558,20 +567,42 @@ function shellb_command_find() {
   # print commands
   # TODO add param to show list with duplicates -- this is useful when we want to delete command
   mapfile -t shellb_command_find_files< <(_shellb_command_sort_by_contents_and_deduplicate "${shellb_command_find_files[@]}")
-  _shellb_command_print_lines shellb_command_find_files "$@"
+  shellb_command_find_output=$(_shellb_command_print_lines shellb_command_find_files "$@")
 }
+
+# TODO merge with list
+function _shellb_command_find_select() {
+  _shellb_print_dbg "_shellb_command_list_select($*)"
+  local prompt="${1}"
+  shift
+  local -n _shellb_command_find_select_commandfile=$1
+  shift
+  local -a _shellb_command_find_select_commandfiles
+  local _shellb_command_find_select_output
+  local _shellb_command_find_select_selection
+  local _shellb_command_find_select_selection_index
+  shellb_command_find _shellb_command_find_select_output _shellb_command_find_select_commandfiles "$@"  || return 1
+
+  # TODO pass header to interactive filter
+  # do not show the first line (header)
+  _shellb_command_find_select_output=$(echo "${_shellb_command_find_select_output}" | tail -n +2)
+
+  _shellb_core_interactive_filter "${_shellb_command_find_select_output}" _shellb_command_find_select_selection _shellb_command_find_select_selection_index \
+    "$prompt" "search terms: " "matched: " || return 1
+
+  # shellcheck disable=SC2034
+  _shellb_command_find_select_commandfile="${_shellb_command_find_select_commandfiles[_shellb_command_find_select_selection_index-1]}"
+}
+
 
 # Show a list of commands installed below given dir, and allow user to select which one to execute
 # $1 - optional directory to list command for (default: current dir)
 function shellb_command_find_exec() {
   _shellb_print_dbg "shellb_command_list_exec($*)"
 
-  # shellcheck disable=SC2034
-  local shellb_command_find_exec_files
-
-  # get list of commands
-  shellb_command_find shellb_command_find_exec_files "$@" || return 1
-  _shellb_command_selection_exec "${shellb_command_find_exec_files[@]}"
+  local shellb_command_find_exec_file
+  _shellb_command_find_select "select command to run" shellb_command_find_exec_file "$@" || return 1
+  _shellb_command_selection_exec "${shellb_command_find_exec_file}"
 }
 
 # Show list of commands installed below given dir, and allow user to select one to edit
@@ -579,11 +610,9 @@ function shellb_command_find_exec() {
 function shellb_command_find_edit() {
   _shellb_print_dbg "shellb_command_find_edit($*)"
 
-  # shellcheck disable=SC2034
-  local -a shellb_command_find_edit_files
-  # get list of commands
-  shellb_command_find shellb_command_find_edit_files "$@" || return 1
-  _shellb_command_selection_edit "${shellb_command_find_edit_files[@]}"
+  local shellb_command_find_edit_file
+  _shellb_command_find_select "select command to edit" shellb_command_find_edit_file "$@" || return 1
+  _shellb_command_selection_edit "${shellb_command_find_edit_file}"
 }
 
 # Show list of commands installed below given dir, and allow user to select one to delete
@@ -591,11 +620,9 @@ function shellb_command_find_edit() {
 function shellb_command_find_del() {
   _shellb_print_dbg "shellb_command_list_del($*)"
 
-  # shellcheck disable=SC2034
-  local -a shellb_command_find_del_files
-  # get list of commands
-  shellb_command_find shellb_command_find_del_files "$@" || return 1
-  _shellb_command_selection_del "${shellb_command_find_del_files[@]}"
+  local shellb_command_find_del_file
+  _shellb_command_find_select "select command to delete" shellb_command_find_del_file "$@" || return 1
+  _shellb_command_selection_del "${shellb_command_find_del_file}"
 }
 
 # Scans all available command files, and checks if they are bound to a still existing
@@ -709,10 +736,16 @@ function _shellb_command_action() {
       shift
       case "${arg}" in
         -c|--current)
-          shellb_command_list "" "$@"
+          local -a _shellb_command_action_list_dummy
+          local _shellb_command_action_list_output
+          shellb_command_list _shellb_command_action_list_output _shellb_command_action_list_dummy "$@"
+          echo "${_shellb_command_action_list_output}"
           ;;
         -r|--recursive)
-          shellb_command_find "" "$@"
+          local -a _shellb_command_action_find_dummy
+          local _shellb_command_action_find_output
+          shellb_command_find _shellb_command_action_find_output _shellb_command_action_find_dummy "$@"
+          echo "${_shellb_command_action_find_output}"
           ;;
         *)
           _shellb_print_err "unknown scope \"${arg}\" passed to \"command $action\""
