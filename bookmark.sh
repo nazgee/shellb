@@ -368,35 +368,64 @@ function bookmark_bookmark_help() {
 
   case "$action" in
     new)
-      echo "Usage: bookmark new [bookmark_name] [bookmark_path]"
-      echo "Creates a new bookmark with the specified name and path."
-      echo "If no name is specified, the current directory name is used as the name."
-      echo "If no path is specified, the current directory path is used as the path."
+      echo "usage: shellb bookmark new BOOKMARK_NAME [BOOKMARK_PATH]"
+      echo ""
+      echo "Creates a new directory bookmark with specified BOOKMARK_NAME."
+      echo ""
+      echo "If BOOKMARK_PATH is given, it will be bookmarked under BOOKMARK_NAME,"
+      echo "if not - current directory will be bookmarked."
       ;;
     del)
-      echo "Usage: bookmark del [bookmark_name]"
-      echo "Deletes the bookmark with the specified name."
+      echo "usage: shellb bookmark del [BOOKMARK_NAME]"
+      echo ""
+      echo "Deletes directory bookmark with specified BOOKMARK_NAME"
+      echo ""
+      echo "If BOOKMARK_NAME is not provided, a list of all available bookmarks is shown,"
+      echo "and user can select one to delete."
       ;;
     go)
-      echo "Usage: bookmark go [bookmark_name]"
-      echo "Navigates to the directory associated with the specified bookmark."
+      echo "usage: shellb bookmark go [BOOKMARK_NAME]"
+      echo ""
+      echo "Navigates to the directory associated with specified BOOKMARK_NAME."
+      echo ""
+      echo "If BOOKMARK_NAME is not provided, a list of all available bookmarks is shown,"
+      echo "and user can select one to navigate to."
       ;;
     edit)
-      echo "Usage: bookmark edit [bookmark_name]"
-      echo "Opens the bookmark file for editing in the default editor."
+      echo "usage: shellb bookmark edit [BOOKMARK_NAME]"
+      echo ""
+      echo "Edit directory bookmark with specified BOOKMARK_NAME."
+      echo ""
+      echo "If BOOKMARK_NAME is not provided, a list of all available bookmarks is shown,"
+      echo "and user can select one to navigate to."
       ;;
     list)
-      echo "Usage: bookmark list"
-      echo "Lists all available bookmarks and their associated paths."
+      echo "usage: shellb bookmark list [BOOKMARK_GLOB_EXPRESSION]"
+      echo ""
+      echo "Lists bookmarks matching BOOKMARK_GLOB_EXPRESSION and their associated paths."
+      echo ""
+      echo "If BOOKMARK_GLOB_EXPRESSION is not provided, all bookmarks are listed."
       ;;
     purge)
-      echo "Usage: bookmark purge"
-      echo "Deletes all existing bookmarks."
+      echo "usage: shellb bookmark purge"
+      echo ""
+      echo "Deletes bookmarks that point to non-existing directories."
+      echo "This is useful to clean up bookmarks after substantial changed to the filesysytem."
       ;;
     *)
-      echo "Usage: bookmark help [action]"
-      echo "Displays help information for the specified action."
-      echo "Actions: new, del, go, edit, list, purge"
+      echo "usage: shellb bookmark ACTION [options]"
+      echo ""
+      echo "\"bookmark\" module allows to create bookmarks to a directory and easily navigate between them"
+      echo ""
+      echo "shell bookmark actions:"
+      echo "    new      Create new directory bookmark"
+      echo "    go       Go to bookmarked directory"
+      echo "    del      Delete directory bookmark"
+      echo "    edit     Edit directory bookmark"
+      echo "    list     List directory bookmarks"
+      echo "    purge    Purge all \"dead\" directory bookmarks"
+      echo ""
+      echo "See \"shellb bookmark help <action>\" for more information on a specific action."
       ;;
   esac
 }

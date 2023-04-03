@@ -656,8 +656,93 @@ function shellb_command_purge() {
 }
 
 function shellb_command_help() {
-  # TODO implement
-  _shellb_print_err "help not implemented yet"
+  local action="$1"
+
+  case "$action" in
+    new)
+      echo "usage: shellb command new"
+      echo ""
+      echo "Save a new command bound to current directory (interactively, from stdin)."
+      ;;
+    save)
+      echo "usage: shellb command save"
+      echo ""
+      echo "Save a command previously executed in this shell, and bind it to current directory."
+      echo "Command can be edited before saving."
+      ;;
+    run)
+      echo "usage: shellb command run -c|--current   [DIR]"
+      echo "       shellb command run -r|--recursive [DIR]"
+      echo ""
+      echo "Run a command bound to a DIR directory, or current directory if DIR is not specified."
+      echo "If multiple commands are bound to the same directory, a selection menu is shown."
+      echo ""
+      echo "Options:"
+      echo "    -c|--current DIR    Run one of commands bound to DIR"
+      echo "    -r|--recursive DIR  Run one of commands bound to DIR or it's subdirectories"
+      echo "    -c|--current        Run one of commands bound to current working directory"
+      echo "    -r|--recursive      Run one of commands bound to current working directory and it's subdirectories"
+      ;;
+    del)
+      echo "usage: shellb command del -c|--current   [DIR]"
+      echo "       shellb command del -r|--recursive [DIR]"
+      echo ""
+      echo "Delete a command bound to a DIR directory, or current directory if DIR is not specified."
+      echo "If multiple commands are bound to the same directory, a selection menu is shown."
+      echo ""
+      echo "Options:"
+      echo "    -c|--current DIR    Delete one of commands bound to DIR"
+      echo "    -r|--recursive DIR  Delete one of commands bound to DIR or it's subdirectories"
+      echo "    -c|--current        Delete one of commands bound to current working directory"
+      echo "    -r|--recursive      Delete one of commands bound to current working directory and it's subdirectories"
+      ;;
+    edit)
+      echo "usage: shellb command edit -c|--current   [DIR]"
+      echo "       shellb command edit -r|--recursive [DIR]"
+      echo ""
+      echo "Edit a command bound to a DIR directory, or current directory if DIR is not specified."
+      echo "If multiple commands are bound to the same directory, a selection menu is shown."
+      echo ""
+      echo "Options:"
+      echo "    -c|--current DIR    Edit one of commands bound to DIR"
+      echo "    -r|--recursive DIR  Edit one of commands bound to DIR or it's subdirectories"
+      echo "    -c|--current        Edit one of commands bound to current working directory"
+      echo "    -r|--recursive      Edit one of commands bound to current working directory and it's subdirectories"
+      ;;
+    list)
+      echo "usage: shellb command list -c|--current   [DIR]"
+      echo "       shellb command list -r|--recursive [DIR]"
+      echo ""
+      echo "List commands bound to a DIR directory, or current directory if DIR is not specified."
+      echo "If multiple commands are bound to the same directory, a selection menu is shown."
+      echo ""
+      echo "Options:"
+      echo "    -c|--current DIR    List commands bound to DIR"
+      echo "    -r|--recursive DIR  List commands bound to DIR and it's subdirectories"
+      echo "    -c|--current        List commands bound to current working directory"
+      echo "    -r|--recursive      List commands bound to current working directory and it's subdirectories"
+      ;;
+    purge)
+      echo "usage: shellb command purge"
+      echo ""
+      echo "Delete commands bound to directories that no longer exist."
+      ;;
+    *)
+      echo "usage: shellb command ACTION"
+      echo ""
+      echo "\"command\" module allows to save commands for a directory in a shellb database, and run them later"
+      echo ""
+      echo "shellb command actions:"
+      echo "    new     Save a new command, and bind it to current directory"
+      echo "    save    Save a command previously executed in this shell, and bind it to current directory"
+      echo "    run     Run a command bound to directory"
+      echo "    del     Delete a command bound to directory"
+      echo "    edit    Edit a command bound to directory"
+      echo "    list    List commands bound to directory"
+      echo "    purge   Delete commands bound to directories that no longer exist"
+      echo ""
+      echo "See \"shellb command help <action>\" for more information on a specific action."
+  esac
 }
 
 ###############################################

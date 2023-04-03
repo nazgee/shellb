@@ -176,7 +176,37 @@ function _shellb_help_compgen() {
 }
 
 function _shellb_help_action() {
-  _shellb_print_err "help action implemented yet"
+  local action="$1"
+
+  case "${action}" in
+    bookmark)
+      echo "bookmark help"
+      ;;
+    command)
+      echo "command help"
+      ;;
+    note)
+      echo "note help"
+      ;;
+    reload-config)
+      echo "reload-config help"
+      ;;
+    aliases)
+      echo "aliases help"
+      ;;
+    *)
+      echo "usage: shellb ACTION [options]"
+      echo ""
+      echo "shellb actions:"
+      echo "    bookmark       Go to and manage bookmarked directories"
+      echo "    command        Run and manage commands bound to a directory"
+      echo "    note           Edit and manage notes bound to a directory"
+      echo "    reload-config  Reload shellb config from ${_SHELLB_RC}"
+      echo "    aliases        List shellb aliases defined in ${_SHELLB_RC}"
+      echo ""
+      echo "See \"shellb <action> help\" for more information on a specific action."
+      ;;
+  esac
 }
 
 function _shellb_reload-config_compgen() {
