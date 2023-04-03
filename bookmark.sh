@@ -197,7 +197,15 @@ function shellb_bookmark_edit() {
   # edit bookmark
   read -r -e -p "bookmark name  : " -i "${oldbookmark}" bookmark || return 1
   read -r -e -p "bookmark target: " -i "${target}" target || return 1
-  shellb_bookmark_set "${bookmark}" "${target}" && shellb_bookmark_del "${oldbookmark}" 1 || return 1
+  shellb_bookmark_set "${bookmark}" "${target}" && {
+    _shellb_print_nfo "bookmark edited:"
+    shellb_bookmark_get_long "${bookmark}"
+    if [[ "${bookmark}" = "${oldbookmark}" ]]; then
+      :
+    else
+      shellb_bookmark_del "${oldbookmark}" 1 || return 1
+    fi
+  }
 }
 
 function shellb_bookmark_get_short() {
@@ -292,25 +300,24 @@ function shellb_bookmark_list_short() {
 function _shellb_bookmark_select() {
   _shellb_print_dbg "_shellb_bookmark_select($*)"
   local prompt="${1}"
-  shift
-  local -n _shellb_bookmark_select_bookmark=$1
+  local -n _shellb_bookmark_select_bookmark=$2
   shift
   local -a _shellb_bookmark_select_bookmarks
+  shift
   local _shellb_bookmark_select_output
-  shellb_bookmark_list_long _shellb_bookmark_select_output _shellb_bookmark_select_bookmarks "${1}"  || return 1
-  echo "${_shellb_bookmark_select_output}"
+  local _shellb_bookmark_select_selection
+  local _shellb_bookmark_select_selection_index
+  shellb_bookmark_list_long _shellb_bookmark_select_output _shellb_bookmark_select_bookmarks "$@"  || return 1
 
-  # if we have some bookmarks, let user choose
-  local selection
-  if [[ ${#_shellb_bookmark_select_bookmarks[@]} -gt 1 ]]; then
-    _shellb_print_nfo "${prompt}"
-    selection=$(_shellb_core_user_get_number "${#_shellb_bookmark_select_bookmarks[@]}") || return 1
-  else
-    selection="1"
-  fi
+  # TODO pass header to interactive filter
+  # do not show the first line (header)
+  _shellb_bookmark_select_output=$(echo "${_shellb_bookmark_select_output}" | tail -n +2)
+
+  _shellb_core_interactive_filter "${_shellb_bookmark_select_output}" _shellb_bookmark_select_selection _shellb_bookmark_select_selection_index \
+    "$prompt" "search terms: " "matched: " || return 1
 
   # shellcheck disable=SC2034
-  _shellb_bookmark_select_bookmark="${_shellb_bookmark_select_bookmarks[selection-1]}"
+  _shellb_bookmark_select_bookmark="${_shellb_bookmark_select_bookmarks[_shellb_bookmark_select_selection_index-1]}"
 }
 
 function shellb_bookmark_list_goto() {
