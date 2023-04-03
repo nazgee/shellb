@@ -127,7 +127,7 @@ function _shellb_command_exec_with_confirmation() {
   local final_command chosen_command="${1}"
   history -s "${target}"
   _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
-  read -r -e -p "$ " -i "${chosen_command}" final_command && _shellb_command_exec "${final_command}"
+  read -r -e -p "$(echo -e "${_SHELLB_CFG_COLOR_EXE}run${_SHELLB_COLOR_NONE}"): " -i "${chosen_command}" final_command && _shellb_command_exec "${final_command}"
 }
 
 # Ask user to select a number from 1 to size of given array
