@@ -135,7 +135,9 @@ function shellb_bookmark_set() {
 
   bookmark_file="$(_shellb_bookmarks_calc_absfile "${bookmark_name}.${_SHELLB_CFG_BOOKMARK_EXT}")"
   if [ -e "${bookmark_file}" ] && ! echo "${bookmark_target}" | cmp -s - "${bookmark_file}" > /dev/null; then
-    _shellb_core_user_get_confirmation "bookmark \"${bookmark_name}\" to \"$(_shellb_bookmark_get "${bookmark_name}")\" exists, change it to \"${bookmark_target}\"?" || return 0
+    _shellb_print_wrn "Bookmark \"${bookmark_name}\" already exists."
+    _shellb_print_wrn "It points to \"$(_shellb_bookmark_get "${bookmark_name}")\"."
+    _shellb_core_user_get_confirmation "Change it to \"${bookmark_target}\"?" || return 0
   fi
 
   # Save the bookmark
@@ -425,9 +427,9 @@ function bookmark_bookmark_help() {
       _shellb_aliases_action "shellb bookmark purge"
       ;;
     *)
-      echo "usage: shellb bookmark ACTION [options]"
-      echo ""
       echo "\"bookmark\" module allows to create bookmarks to a directory and easily navigate between them"
+      echo ""
+      echo "usage: shellb bookmark ACTION [options]"
       echo ""
       echo "\"shellb bookmark\" actions:"
       echo "    new      Create new directory bookmark"

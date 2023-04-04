@@ -455,7 +455,7 @@ function _shellb_core_interactive_filter() {
     echo "$instructions"
     local final_promopt
     if [[ $matched -eq 0 ]]; then
-      printf "%s %s" "$prompt_confirm" "$search_term"
+      printf "%s %s (press ENTER to confirm)" "$prompt_search" "$search_term"
     else
       printf "%s %s" "$prompt_search" "$search_term"
     fi

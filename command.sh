@@ -743,9 +743,9 @@ function shellb_command_help() {
       _shellb_aliases_action "shellb command purge"
       ;;
     *)
-      echo "usage: shellb command ACTION"
-      echo ""
       echo "\"command\" module allows to save commands for a directory in a shellb database, and run them later"
+      echo ""
+      echo "usage: shellb command ACTION"
       echo ""
       echo "\"shellb command\" actions:"
       echo "    new     Save a new command, and bind it to current directory"

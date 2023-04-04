@@ -231,10 +231,10 @@ function shellb_notepad_help() {
       _shellb_aliases_action "shellb note purge"
       ;;
     *)
-      echo "usage: shellb note ACTION"
-      echo ""
       echo "\"note\" module allows to create notes for a directory in a shellb database, and edit them later."
       echo "shellb \"note\" is persistent - it will be available even if directory is deleted"
+      echo ""
+      echo "usage: shellb note ACTION"
       echo ""
       echo "\"shellb note\" actions:"
       echo "    edit     Edit notepad"

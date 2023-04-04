@@ -298,7 +298,7 @@ function shellb() {
   }
   _shellb_module_action "$@" || {
     _shellb_print_err "\"shellb $1\" failed"
-    _shellb_help_action "$1"
+    #_shellb_help_action "$1"
     return 1
   }
 }
