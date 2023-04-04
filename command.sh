@@ -61,12 +61,15 @@ function _shellb_command_edit_tagfile() {
   }
   content="${2}"
   file="${3}"
-  read -r -e -p "#tags: " -i "${content}" content || return 1
+  read -r -e -p "#tags: " -i "${content}" content || {
+    return 1
+  }
+
   [ -n "${content}" ] || {
     local domain_file
     domain_file="$(_shellb_core_calc_user_to_domainabs "${user_dir}" "${_SHELLB_DB_COMMANDS}")/${file}"
     echo "" > "${domain_file}"
-    _shellb_print_nfo "tags removed for ${domain_file}"
+    printf "${_SHELLB_COLOR_NONE}tags removed for %s" "${_SHELLB_CFG_COLOR_LNK}${domain_file}${_SHELLB_COLOR_NONE}"
     return 0
   }
   _shellb_command_contents_save "${content}" "${file}" "${user_dir}"
@@ -86,8 +89,15 @@ function _shellb_command_edit_commandfile() {
   }
   content="${2}"
   file="${3}"
-  read -r -e -p "$ " -i "${content}" content || return 1
-  [ -n "${content}" ] || { _shellb_print_err "command not given" ; return 1; }
+  read -r -e -p "\$ " -i "${content}" content || {
+
+    return 1
+  }
+
+  [ -n "${content}" ] || {
+    _shellb_print_err "${_SHELLB_COLOR_NONE}command not given"
+    return 1
+  }
   _shellb_command_contents_save "${content}" "${file}" "${user_dir}"
 }
 
@@ -126,8 +136,12 @@ function _shellb_command_exec_with_confirmation() {
   _shellb_print_dbg "_shellb_command_exec_with_confirmation($*)"
   local final_command chosen_command="${1}"
   history -s "${target}"
-  _shellb_print_nfo "execute command (edit & confirm with ENTER or cancel with ctrl-c):"
-  read -r -e -p "$(echo -e "${_SHELLB_CFG_COLOR_EXE}run${_SHELLB_COLOR_NONE}"): " -i "${chosen_command}" final_command && _shellb_command_exec "${final_command}"
+  printf "${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE} command (confirm with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}, cancel with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}):\n" "run" "ENTER" "CTRL+c"
+  read -r -e -p "\$ " -i "${chosen_command}" final_command && {
+    _shellb_command_exec "${final_command}"
+    return $?
+  }
+  return 1
 }
 
 # Ask user to select a number from 1 to size of given array
@@ -150,11 +164,11 @@ function _shellb_command_selection_del() {
   chosen_tagfile="$(_shellb_command_get_tagfile_from_commandfile "${chosen_cmdfile}")"
   chosen_command="$(cat "${chosen_cmdfile}")"
 
-  _shellb_print_nfo "command file: \"$(_shellb_command_get_resource_proto_from_abs "${chosen_cmdfile}")\""
+  printf "command file: ${_SHELLB_CFG_COLOR_LNK}%s${_SHELLB_COLOR_NONE}\n" "$(_shellb_command_get_resource_proto_from_abs "${chosen_cmdfile}")"
   _shellb_core_user_get_confirmation "delete command \"${chosen_command}\"?" || return 0
   _shellb_core_remove "${chosen_cmdfile}" && {
     _shellb_core_remove "${chosen_tagfile}" 2>/dev/null # safe to fail (tag file may be empty)
-    _shellb_print_nfo "command deleted: ${chosen_command}"
+    printf "command deleted: ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}\n" "${chosen_command}"
   }
 }
 
@@ -173,12 +187,12 @@ function _shellb_command_selection_edit() {
   uuid_file="${uuid_file%.*}"
   tag="$(cat "$(dirname "${chosen_cmdfile}")/${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
-  _shellb_print_nfo "edit command (edit & confirm with ENTER or cancel with ctrl-c)"
+  printf "edit command for ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE} (confirm with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}, cancel with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}):\n" "${user_dir}" "ENTER" "CTRL+c"
   _shellb_command_edit_commandfile "${user_dir}" "${chosen_command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || {
     _shellb_print_wrn "failed to edit command \"${chosen_command}\". Maybe \"${user_dir}\" is not a valid dir? Purge command with \"shellb command purge\""
     return 1
   }
-  _shellb_print_nfo "edit tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
+  printf "${_SHELLB_COLOR_NONE}optional tags (confirm with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}, cancel with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}):\n" "ENTER" "CTRL+c"
   _shellb_command_edit_tagfile "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
   return 0
 }
@@ -191,11 +205,11 @@ function shellb_command_save_previous() {
   uuid_file="$(uuidgen -t)"
   tag="$(cat "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}" 2>/dev/null)"
 
-  _shellb_print_nfo "save previous command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
+  printf "save command for ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE} (confirm with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}, cancel with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}):\n" "${user_dir}" "ENTER" "CTRL+c"
   _shellb_command_edit_commandfile "${user_dir}" "${command}" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" "$ " || {
     return 1
   }
-  _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
+  printf "${_SHELLB_COLOR_NONE}optional tags (confirm with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}, cancel with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}):\n" "ENTER" "CTRL+c"
   _shellb_command_edit_tagfile "${user_dir}" "${tag}" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
   return 0
 }
@@ -206,11 +220,11 @@ function shellb_command_save_interactive() {
   user_dir="$(realpath -eq "${1:-.}" 2>/dev/null)" || { _shellb_print_err "\"${1:-.}\" is not a valid dir" ; return 1 ; }
   uuid_file="$(uuidgen -t)"
 
-  _shellb_print_nfo "save new command for \"${user_dir}\" (edit & confirm with ENTER, cancel with ctrl-c)"
+  printf "save command for ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE} (confirm with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}, cancel with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}):\n" "${user_dir}" "ENTER" "CTRL+c"
   _shellb_command_edit_commandfile "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_EXT}" || {
     return 1
   }
-  _shellb_print_nfo "add optional tags for a command (space separated words, edit & confirm with ENTER or cancel with ctrl-c"
+  printf "${_SHELLB_COLOR_NONE}optional tags (confirm with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}, cancel with ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE}):\n" "ENTER" "CTRL+c"
   _shellb_command_edit_tagfile "${user_dir}" "" "${uuid_file}.${_SHELLB_CFG_COMMAND_TAG_EXT}"
   return 0
 }
@@ -450,9 +464,9 @@ function shellb_command_list() {
     shellb_command_list_files=("${shellb_command_list_files_tagged[@]}")
 
     [ ${#shellb_command_list_files_tagged[@]} -gt 0 ] || { _shellb_print_err "no commands found with tag \"${tag}\"" ; return 1; }
-    _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\" with tag \"${tag}\""
+    printf "commands in ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE} with tag ${_SHELLB_CFG_COLOR_LNK}%s${_SHELLB_COLOR_NONE}:\n" "$(_shellb_command_get_resource_proto_from_user "${user_dir}")" "${tag}"
   else
-    _shellb_print_nfo "commands in \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
+    printf "commands in ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}:\n" "$(_shellb_command_get_resource_proto_from_user "${user_dir}")"
   fi
 
   # TODO add param to show list with duplicates -- this is useful when we want to delete command
@@ -559,9 +573,9 @@ function shellb_command_find() {
     shellb_command_find_files=("${shellb_command_find_files_tagged[@]}")
 
     [ ${#shellb_command_find_files_tagged[@]} -gt 0 ] || { _shellb_print_err "no commands found with tag \"${tag}\"" ; return 1; }
-    _shellb_print_nfo "commands below \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\" with tag \"${tag}\""
+    printf "commands below ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE} with tag ${_SHELLB_CFG_COLOR_LNK}%s${_SHELLB_COLOR_NONE}:\n" "$(_shellb_command_get_resource_proto_from_user "${user_dir}")" "${tag}"
   else
-    _shellb_print_nfo "commands below \"$(_shellb_command_get_resource_proto_from_user "${user_dir}")\""
+    printf "commands below ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}:\n" "$(_shellb_command_get_resource_proto_from_user "${user_dir}")"
   fi
 
   # print commands
@@ -638,11 +652,14 @@ function shellb_command_purge() {
     # Skip the current iteration if the user directory exists
     [ -d "$(_shellb_core_calc_domainabs_to_user "$(dirname "${cmd_file}")" "${_SHELLB_DB_COMMANDS}")" ] && continue
 
-    [ ${#files_to_purge[@]} -eq 0 ] && _shellb_print_nfo "purged \"dead\" commands:"
+    [ ${#files_to_purge[@]} -eq 0 ] && printf "purged \"%s\" commands:" "${_SHELLB_CFG_COLOR_BAD}dead${_SHELLB_COLOR_NONE}"
     files_to_purge+=("${cmd_file}")
   done
 
-  [ ${#files_to_purge[@]} -eq 0 ] && { _shellb_print_nfo "no commands purged (all commands were \"alive\")" ; return 0; }
+  [ ${#files_to_purge[@]} -eq 0 ] && {
+    printf "no commands purged (all commands were \"%s\")" "${_SHELLB_CFG_COLOR_EXE}alive${_SHELLB_COLOR_NONE}"
+    return 0
+  }
 
   _shellb_command_print_lines files_to_purge
 

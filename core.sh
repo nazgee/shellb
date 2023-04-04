@@ -20,7 +20,12 @@ function _shellb_print_dbg() {
 }
 
 function _shellb_print_nfo() {
-  printf "${_SHELLB_CFG_LOG_PREFIX}${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n" "${1}"
+  local format
+
+  [ -z "${2}" ] && format="${_SHELLB_CFG_LOG_PREFIX}${_SHELLB_CFG_COLOR_NFO}%s${_SHELLB_COLOR_NONE}\n"
+  [ -n "${2}" ] && format="${_SHELLB_CFG_LOG_PREFIX}${1}" && shift
+
+  printf "${format}" "${@}"
 }
 
 function _shellb_print_wrn() {
@@ -40,7 +45,6 @@ function _shellb_print_err() {
 }
 
 ######### file operations #####################
-
 function _shellb_core_remove() {
   _shellb_print_dbg "_shellb_core_remove($*)"
   local target
@@ -441,24 +445,30 @@ function _shellb_core_interactive_filter() {
     tput civis # hide the cursor, so it doesn't flicker
     tput cup 0 0 # move cursor to top left, so we can redraw the screen
     # print padding lines to clear the screen
-    for ((i=0; i<((terminal_rows - $(echo "$filtered" | wc -l) ) - 2); i++)); do
+    for ((i=0; i<((terminal_rows - $(echo "$filtered" | wc -l) ) - 3); i++)); do
       printf "%-${terminal_cols}s\n" "."
     done
     # print filtered lines, but pad them to the terminal width (to clear old lines)
     while IFS= read -r line; do
-      printf "%-${terminal_cols}s\n" "$line"
+      if [[ $matched -eq 0 ]]; then
+        local matched_line
+        matched_line=$(printf "%s   (${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE} to confirm)" "$line" "ENTER")
+        printf "%-${terminal_cols}s\n" "${matched_line}"
+      else
+        printf "%-${terminal_cols}s\n" "$line"
+      fi
     done <<< "${filtered}"
 
-    printf "%-${terminal_cols}s\n" " "
+#    printf "%-${terminal_cols}s\n" " "
+
     printf "%-${terminal_cols}s\n" " "
     tput cup $((terminal_rows - 2)) 0 # move cursor to the bottom line
-    echo "$instructions"
-    local final_promopt
-    if [[ $matched -eq 0 ]]; then
-      printf "%s %s (press ENTER to confirm)" "$prompt_search" "$search_term"
-    else
-      printf "%s %s" "$prompt_search" "$search_term"
-    fi
+    printf "$instructions (type to filter, ${_SHELLB_CFG_COLOR_EXE_UNDER}%s${_SHELLB_COLOR_NONE} to cancel)\n" "ESC"
+    printf "%s ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}" "${prompt_search}" "${search_term}  "
+
+    tput cup $((terminal_rows - 1)) 0 # move cursor to the bottom line
+    printf "%s ${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}" "${prompt_search}" "${search_term}"
+
 
     # Show the cursor
     tput cnorm

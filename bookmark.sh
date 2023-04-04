@@ -95,7 +95,7 @@ function _shellb_get_userdir_bookmarks_string() {
 
   if [ ${#shellb_get_userdir_bookmarks_string_bookmarks[@]} -ne 0 ]; then
     for bookmark in "${shellb_get_userdir_bookmarks_string_bookmarks[@]}"; do
-      bookmarks_string+="${bookmark}"
+      bookmarks_string+="${bookmark},"
     done
     # Remove the trailing comma
     bookmarks_string=${bookmarks_string%,}
@@ -143,7 +143,7 @@ function shellb_bookmark_set() {
   # Save the bookmark
   echo "${bookmark_target}" > "${bookmark_file}" || { _shellb_print_err "set bookmark failed, saving bookmark failed"; return 1; }
 
-  _shellb_print_nfo "bookmark set:"
+  printf "bookmark set:\n"
   shellb_bookmark_get_long "${1}"
 }
 
@@ -161,8 +161,11 @@ function shellb_bookmark_del() {
   [ -n "${1}" ] || _shellb_print_err "del bookmark failed, no bookmark name given" || return 1
   [ -e "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" ] || _shellb_print_err "del bookmark failed, unknown bookmark: \"${1}\"" || return 1
   [ -n "${assume_yes}" ] || _shellb_core_user_get_confirmation "delete \"${1}\" bookmark?" || return 0
-  _shellb_core_remove "$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")" || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
-  _shellb_print_nfo "bookmark deleted: ${1}"
+  local target bookmark_file
+  bookmark_file=$(_shellb_bookmarks_calc_absfile "${1}.${_SHELLB_CFG_BOOKMARK_EXT}")
+  bookmark_target="$(cat "${bookmark_file}")"
+  _shellb_core_remove "${bookmark_file}" || _shellb_print_err "del bookmark failed, is ${_SHELLB_DB_BOOKMARKS} accessible?" || return 1
+  printf "bookmark deleted:\n${_SHELLB_CFG_COLOR_LNK}%s${_SHELLB_COLOR_NONE} | ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${bookmark_target}"
 }
 
 function shellb_bookmark_goto() {
@@ -200,8 +203,6 @@ function shellb_bookmark_edit() {
   read -r -e -p "bookmark name  : " -i "${oldbookmark}" bookmark || return 1
   read -r -e -p "bookmark target: " -i "${target}" target || return 1
   shellb_bookmark_set "${bookmark}" "${target}" && {
-    _shellb_print_nfo "bookmark edited:"
-    shellb_bookmark_get_long "${bookmark}"
     if [[ "${bookmark}" = "${oldbookmark}" ]]; then
       :
     else
@@ -227,7 +228,7 @@ function _shellb_bookmark_print_long() {
   _shellb_print_dbg "_shellb_bookmark_print_long($*)"
   local column_width="$3"
   if _shellb_bookmark_is_alive "$1"; then
-    printf "%${column_width}s | %s\n" "${1}" "${2}"
+    printf "${_SHELLB_CFG_COLOR_LNK}%${column_width}s${_SHELLB_COLOR_NONE} | ${_SHELLB_CFG_COLOR_DIR}%s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
   else
     printf " ${_SHELLB_CFG_COLOR_BAD}%${column_width}s | %s${_SHELLB_COLOR_NONE}\n" "${1}" "${2}"
   fi
@@ -355,14 +356,14 @@ function shellb_bookmark_list_purge() {
     # delete any bookmark that does not exist
     if ! _shellb_bookmark_is_alive "${bookmark}"; then
       # before deleting, print a header
-      [ ${some_bookmarks_purged} -eq 0 ] && _shellb_print_nfo "purged \"dead\" bookmarks:"
+      [ ${some_bookmarks_purged} -eq 0 ] && printf "purged \"${_SHELLB_CFG_COLOR_BAD}%s${_SHELLB_COLOR_NONE}\" bookmarks:" "dead"
       # delete in non-interactive mode (no confirmation needed)
       shellb_bookmark_del "${bookmark}" "1"
       some_bookmarks_purged=1
     fi
   done < <(_shellb_bookmark_glob "*")
 
-  [ ${some_bookmarks_purged} -eq 0 ] && _shellb_print_nfo "no bookmarks purged (all bookmarks were \"alive\")"
+  [ ${some_bookmarks_purged} -eq 0 ] && printf "no bookmarks purged (all bookmarks were \"${_SHELLB_CFG_COLOR_EXE}%s${_SHELLB_COLOR_NONE}\")" "alive"
 }
 
 function bookmark_bookmark_help() {
