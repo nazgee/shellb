@@ -92,9 +92,10 @@ alias shh='shellb'
 
 ## 'bookmark' aliases
 alias bn='shellb bookmark new'
-alias bl='shellb bookmark list'
-alias d='shellb bookmark del'
 alias g='shellb bookmark go'
+alias d='shellb bookmark del'
+alias be='shellb bookmark edit'
+alias bl='shellb bookmark list'
 alias bp='shellb bookmark purge'
 
 ## 'notepad' aliases
@@ -108,21 +109,21 @@ alias npc='shellb note cat'
 alias cmn='shellb command new'
 alias cms='shellb command save'
 
-alias cml='shellb command list --current'
-alias cmlr='shellb command list --recursive'
-alias cmla='shellb command list --recursive /'
-
-alias cme='shellb command edit --current'
-alias cmer='shellb command edit --recursive'
-alias cmea='shellb command edit --recursive /'
+alias cmr='shellb command run --current'
+alias cmrr='shellb command run --recursive'
+alias cmra='shellb command run --recursive /'
 
 alias cmd='shellb command del --current'
 alias cmdr='shellb command del --recursive'
 alias cmda='shellb command del --recursive /'
 
-alias cmr='shellb command run --current'
-alias cmrr='shellb command run --recursive'
-alias cmra='shellb command run --recursive /'
+alias cme='shellb command edit --current'
+alias cmer='shellb command edit --recursive'
+alias cmea='shellb command edit --recursive /'
+
+alias cml='shellb command list --current'
+alias cmlr='shellb command list --recursive'
+alias cmla='shellb command list --recursive /'
 "
 
 ###############################################
@@ -151,14 +152,13 @@ source "${_SHELLB_RC}"
 ###############################################
 function _shellb_module_invoke() {
   local function_name module_name
-  _shellb_print_dbg "_shellb_module_invoke($*)"
 
   function_name=$1
   shift
   module_name=$1
   shift
 
-  eval "_shellb_${module_name}_${function_name} $*"
+  "_shellb_${module_name}_${function_name}" "$@"
 }
 
 function _shellb_module_compgen() {
@@ -171,28 +171,51 @@ function _shellb_module_action() {
   _shellb_module_invoke "action" "$@"
 }
 
+###############################################
+# "help" compgen, action
+###############################################
+
 function _shellb_help_compgen() {
-  _shellb_print_err "help compgen not implemented yet"
+#
+
+  _shellb_print_dbg "_shellb_help_compgen($*)"
+  local opts cur
+  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+  # reset COMPREPLY, as it's global and may have been set in previous invocation
+  COMPREPLY=()
+
+  # by default: add space after completion. every module can override this
+  compopt +o nospace
+
+  case ${COMP_CWORD} in
+    2)
+      opts="${_SHELLB_MODULES[*]} reload-config aliases"
+      ;;
+    3)
+      ;;
+    *)
+      ;;
+  esac
+
+  _shellb_print_dbg "_shellb_help_compgen() opts=${opts}"
+  # if cur is empty, we're completing bookmark name
+  #printf 'pre_%q_suf'  "${opts[@]}"
+
+  COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+  return 0
 }
 
 function _shellb_help_action() {
+  _shellb_print_dbg "_shellb_help_action($*)"
   local action="$1"
+  shift
 
   case "${action}" in
-    bookmark)
-      echo "bookmark help"
-      ;;
-    command)
-      echo "command help"
-      ;;
-    note)
-      echo "note help"
+    bookmark|command|note|aliases)
+      _shellb_module_action "${action}" help "$1"
       ;;
     reload-config)
       echo "reload-config help"
-      ;;
-    aliases)
-      echo "aliases help"
       ;;
     *)
       echo "usage: shellb ACTION [options]"
@@ -209,6 +232,9 @@ function _shellb_help_action() {
   esac
 }
 
+###############################################
+# "reload-config" compgen, action, help
+###############################################
 function _shellb_reload-config_compgen() {
   :
 }
@@ -218,22 +244,63 @@ function _shellb_reload-config_action() {
   source "${_SHELLB_SOURCE_LOCATION}"
   _shellb_print_nfo "loaded (${_SHELLB_SOURCE_LOCATION} + ${_SHELLB_RC})"
 }
-
+###############################################
+# "aliases" compgen, action, help
+###############################################
 function _shellb_aliases_compgen() {
-  :
+  local opts cur
+  opts=("bookmark command note")
+  cur="${COMP_WORDS[COMP_CWORD]}" # current incomplete bookmark name or null
+  COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
 }
 
 function _shellb_aliases_action() {
-  _shellb_print_nfo "list of aliases defined in ${_SHELLB_RC}"
+  _shellb_print_dbg "_shellb_aliases_action($*)"
+  local filter="${1}"
+  local header
+  local exit_code=1
+
+  if [[ -n "${filter}" ]]; then
+    header="List of \"${filter}\" aliases defined in ${_SHELLB_RC}"
+  else
+    header="List of aliases defined in ${_SHELLB_RC}"
+  fi
+
   for alias in ${_SHELLB_ALIASES}; do
-    _shellb_print_nfo "$(type "${alias}" | sed -e "s/is aliased to \`/\t = /g; s/^/\t/; s/'$//;")"
+    local message
+    message=$(type "${alias}" | sed -e "s/is aliased to \`/\t = /g; s/^/\t/; s/'$//;")
+    if [[ -n "${filter}" ]]; then
+      echo "${message}" | grep -q "${filter}" && {
+         [ ${#header} -gt 0 ] && echo "${header}" && header=""
+        echo "${message}"
+        exit_code=0
+      }
+    else
+      [ ${#header} -gt 0 ] && echo "${header}" && header=""
+      echo "${message}"
+      exit_code=0
+    fi
   done
+
+  return $exit_code
 }
+
+###############################################
+# "shellb" compgen, action
+###############################################
 
 function shellb() {
   _shellb_print_nfo "$ shellb $*"
-  [ -n "$1" ] || _shellb_print_err "no module specified" || return 1
-  _shellb_module_action "$@"
+  [ -n "$1" ] || {
+    _shellb_print_err "no action specified"
+    _shellb_help_action "$@"
+    return 1
+  }
+  _shellb_module_action "$@" || {
+    _shellb_print_err "\"shellb $1\" failed"
+    _shellb_help_action "$1"
+    return 1
+  }
 }
 
 function _shellb() {

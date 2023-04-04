@@ -651,6 +651,7 @@ function shellb_command_purge() {
     local tag_file
     tag_file=$(_shellb_command_get_tagfile_from_commandfile "${cmd_file}")
     _shellb_core_remove "${tag_file}" 2> /dev/null # this can fail, ignore errors
+    _shellb_core_remove "${tag_file}" 2> /dev/null # this can fail, ignore errors
     _shellb_core_remove "${cmd_file}" || { _shellb_print_err "failed to remove command file \"${cmd_file}\"" ; return 1; }
   done
 }
@@ -663,12 +664,16 @@ function shellb_command_help() {
       echo "usage: shellb command new"
       echo ""
       echo "Save a new command bound to current directory (interactively, from stdin)."
+      echo ""
+      _shellb_aliases_action "shellb command new"
       ;;
     save)
       echo "usage: shellb command save"
       echo ""
       echo "Save a command previously executed in this shell, and bind it to current directory."
       echo "Command can be edited before saving."
+      echo ""
+      _shellb_aliases_action "shellb command save"
       ;;
     run)
       echo "usage: shellb command run -c|--current   [DIR]"
@@ -682,6 +687,8 @@ function shellb_command_help() {
       echo "    -r|--recursive DIR  Run one of commands bound to DIR or it's subdirectories"
       echo "    -c|--current        Run one of commands bound to current working directory"
       echo "    -r|--recursive      Run one of commands bound to current working directory and it's subdirectories"
+      echo ""
+      _shellb_aliases_action "shellb command run"
       ;;
     del)
       echo "usage: shellb command del -c|--current   [DIR]"
@@ -695,6 +702,8 @@ function shellb_command_help() {
       echo "    -r|--recursive DIR  Delete one of commands bound to DIR or it's subdirectories"
       echo "    -c|--current        Delete one of commands bound to current working directory"
       echo "    -r|--recursive      Delete one of commands bound to current working directory and it's subdirectories"
+      echo ""
+      _shellb_aliases_action "shellb command del"
       ;;
     edit)
       echo "usage: shellb command edit -c|--current   [DIR]"
@@ -708,6 +717,8 @@ function shellb_command_help() {
       echo "    -r|--recursive DIR  Edit one of commands bound to DIR or it's subdirectories"
       echo "    -c|--current        Edit one of commands bound to current working directory"
       echo "    -r|--recursive      Edit one of commands bound to current working directory and it's subdirectories"
+      echo ""
+      _shellb_aliases_action "shellb command edit"
       ;;
     list)
       echo "usage: shellb command list -c|--current   [DIR]"
@@ -721,18 +732,22 @@ function shellb_command_help() {
       echo "    -r|--recursive DIR  List commands bound to DIR and it's subdirectories"
       echo "    -c|--current        List commands bound to current working directory"
       echo "    -r|--recursive      List commands bound to current working directory and it's subdirectories"
+      echo ""
+      _shellb_aliases_action "shellb command list"
       ;;
     purge)
       echo "usage: shellb command purge"
       echo ""
       echo "Delete commands bound to directories that no longer exist."
+      echo ""
+      _shellb_aliases_action "shellb command purge"
       ;;
     *)
       echo "usage: shellb command ACTION"
       echo ""
       echo "\"command\" module allows to save commands for a directory in a shellb database, and run them later"
       echo ""
-      echo "shellb command actions:"
+      echo "\"shellb command\" actions:"
       echo "    new     Save a new command, and bind it to current directory"
       echo "    save    Save a command previously executed in this shell, and bind it to current directory"
       echo "    run     Run a command bound to directory"
@@ -742,7 +757,10 @@ function shellb_command_help() {
       echo "    purge   Delete commands bound to directories that no longer exist"
       echo ""
       echo "See \"shellb command help <action>\" for more information on a specific action."
+      echo ""
+      _shellb_aliases_action "shellb command"
   esac
+  return 0
 }
 
 ###############################################

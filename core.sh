@@ -10,7 +10,7 @@ if [ $sourced -eq 0 ]; then
  exit 1
 fi
 
-_SHELLB_DB="$(realpath -q ~/.shellB)"
+_SHELLB_DB="$(realpath -q ~/.shellb)"
 
 ###############################################
 # helper functions

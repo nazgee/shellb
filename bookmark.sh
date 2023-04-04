@@ -374,6 +374,8 @@ function bookmark_bookmark_help() {
       echo ""
       echo "If BOOKMARK_PATH is given, it will be bookmarked under BOOKMARK_NAME,"
       echo "if not - current directory will be bookmarked."
+      echo ""
+      _shellb_aliases_action "shellb bookmark new"
       ;;
     del)
       echo "usage: shellb bookmark del [BOOKMARK_NAME]"
@@ -382,6 +384,8 @@ function bookmark_bookmark_help() {
       echo ""
       echo "If BOOKMARK_NAME is not provided, a list of all available bookmarks is shown,"
       echo "and user can select one to delete."
+      echo ""
+      _shellb_aliases_action "shellb bookmark del"
       ;;
     go)
       echo "usage: shellb bookmark go [BOOKMARK_NAME]"
@@ -390,6 +394,8 @@ function bookmark_bookmark_help() {
       echo ""
       echo "If BOOKMARK_NAME is not provided, a list of all available bookmarks is shown,"
       echo "and user can select one to navigate to."
+      echo ""
+      _shellb_aliases_action "shellb bookmark go"
       ;;
     edit)
       echo "usage: shellb bookmark edit [BOOKMARK_NAME]"
@@ -398,6 +404,8 @@ function bookmark_bookmark_help() {
       echo ""
       echo "If BOOKMARK_NAME is not provided, a list of all available bookmarks is shown,"
       echo "and user can select one to navigate to."
+      echo ""
+      _shellb_aliases_action "shellb bookmark edit"
       ;;
     list)
       echo "usage: shellb bookmark list [BOOKMARK_GLOB_EXPRESSION]"
@@ -405,19 +413,23 @@ function bookmark_bookmark_help() {
       echo "Lists bookmarks matching BOOKMARK_GLOB_EXPRESSION and their associated paths."
       echo ""
       echo "If BOOKMARK_GLOB_EXPRESSION is not provided, all bookmarks are listed."
+      echo ""
+      _shellb_aliases_action "shellb bookmark list"
       ;;
     purge)
       echo "usage: shellb bookmark purge"
       echo ""
       echo "Deletes bookmarks that point to non-existing directories."
       echo "This is useful to clean up bookmarks after substantial changed to the filesysytem."
+      echo ""
+      _shellb_aliases_action "shellb bookmark purge"
       ;;
     *)
       echo "usage: shellb bookmark ACTION [options]"
       echo ""
       echo "\"bookmark\" module allows to create bookmarks to a directory and easily navigate between them"
       echo ""
-      echo "shell bookmark actions:"
+      echo "\"shellb bookmark\" actions:"
       echo "    new      Create new directory bookmark"
       echo "    go       Go to bookmarked directory"
       echo "    del      Delete directory bookmark"
@@ -426,8 +438,11 @@ function bookmark_bookmark_help() {
       echo "    purge    Purge all \"dead\" directory bookmarks"
       echo ""
       echo "See \"shellb bookmark help <action>\" for more information on a specific action."
+      echo ""
+      _shellb_aliases_action "shellb bookmark"
       ;;
   esac
+  return 0
 }
 
 
@@ -478,7 +493,7 @@ function _shellb_bookmark_compgen() {
   local comp_cur comp_prev opts
   comp_cur="${COMP_WORDS[COMP_CWORD]}"
   comp_prev="${COMP_WORDS[COMP_CWORD-1]}"
-  _shellb_print_dbg "comp_cur: \"${comp_cur}\" COMP_CWORD: \"${COMP_CWORD}\""
+  _shellb_print_dbg "comp_cur=\"${comp_cur}\" comp_prev=\"${comp_prev}\" COMP_CWORD=\"${COMP_CWORD}\" COMP_WORDS=\"${COMP_WORDS[*]}\""
 
   # reset COMPREPLY, as it's global and may have been set in previous invocation
   COMPREPLY=()

@@ -186,6 +186,71 @@ function shellb_notepad_list_del() {
 
 _SHELLB_NOTE_ACTIONS="edit del cat list purge"
 
+function shellb_notepad_help() {
+  local action="$1"
+
+  case "$action" in
+    edit)
+      echo "usage: shellb note edit [NOTEPAD_FILE]"
+      echo ""
+      echo "Opens shellb \"note\" file NOTEPAD_FILE in editor."
+      echo "If NOTEPAD_FILE is not provided, ${_SHELLB_CFG_NOTE_FILE} will be used."
+      echo ""
+      _shellb_aliases_action "shellb note edit"
+      ;;
+    del)
+      echo "usage: shellb note del [PATH]"
+      echo ""
+      echo "Deletes shellb \"note\" files under given PATH."
+      echo "If PATH isnot provided or there are multiple \"note\" files under PATH, user will be asked to select a notepad to delete."
+      echo ""
+      _shellb_aliases_action "shellb note del"
+      ;;
+    cat)
+      echo "usage: shellb note cat [PATH]"
+      echo ""
+      echo "Prints a list of shellb \"note\" files under given PATH to stdout."
+      echo "If PATH is not provided or there are multiple \"note\" files under PATH, user will be asked to select a notepad to show."
+      echo ""
+      _shellb_aliases_action "shellb note cat"
+      ;;
+    list)
+      echo "usage: shellb note cat [PATH]"
+      echo ""
+      echo "Prints a list of shellb \"note\" files under given PATH."
+      echo "If PATH is not provided list of all available notes will be printed."
+      echo ""
+      _shellb_aliases_action "shellb note list"
+      ;;
+    purge)
+      echo "usage: shellb note purge"
+      echo ""
+      echo "Deletes \"note\" files that are created for directories that no longer exist."
+      echo "This is useful to clean up bookmarks after substantial changed to the filesysytem."
+      echo ""
+      _shellb_aliases_action "shellb note purge"
+      ;;
+    *)
+      echo "usage: shellb note ACTION"
+      echo ""
+      echo "\"note\" module allows to create notes for a directory in a shellb database, and edit them later."
+      echo "shellb \"note\" is persistent - it will be available even if directory is deleted"
+      echo ""
+      echo "\"shellb note\" actions:"
+      echo "    edit     Edit notepad"
+      echo "    del      Delete notepad"
+      echo "    cat      Show notepad"
+      echo "    list     Lit notepads"
+      echo "    purge    delete all notepads"
+      echo ""
+      echo "See \"shellb note help <action>\" for more information on a specific action."
+      echo ""
+      _shellb_aliases_action "shellb note"
+      ;;
+  esac
+  return 0
+}
+
 function _shellb_note_action() {
   _shellb_print_dbg "_shellb_note_action($*)"
   local action
@@ -195,7 +260,7 @@ function _shellb_note_action() {
 
   case ${action} in
     help)
-      _shellb_print_err "unimplemented \"note $action\""
+      shellb_notepad_help "$@"
       ;;
     edit)
       shellb_notepad_list_edit "$@"
@@ -217,6 +282,7 @@ function _shellb_note_action() {
       _shellb_print_err "unknown action \"note $action\""
       ;;
   esac
+  return 0
 }
 
 function _shellb_notepad_edit_compgen() {
