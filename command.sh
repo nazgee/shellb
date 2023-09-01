@@ -492,7 +492,7 @@ function _shellb_command_list_select() {
   _shellb_command_list_select_output=$(echo "${_shellb_command_list_select_output}" | tail -n +2)
 
   _shellb_core_interactive_filter "${_shellb_command_list_select_output}" _shellb_command_list_select_selection _shellb_command_list_select_selection_index \
-    "$prompt" "search terms: " "matched: " || return 1
+    "$prompt" || return 1
 
   # shellcheck disable=SC2034
   _shellb_command_list_select_commandfile="${_shellb_command_list_select_commandfiles[_shellb_command_list_select_selection_index-1]}"
@@ -602,7 +602,7 @@ function _shellb_command_find_select() {
   _shellb_command_find_select_output=$(echo "${_shellb_command_find_select_output}" | tail -n +2)
 
   _shellb_core_interactive_filter "${_shellb_command_find_select_output}" _shellb_command_find_select_selection _shellb_command_find_select_selection_index \
-    "$prompt" "search terms: " "matched: " || return 1
+    "$prompt" || return 1
 
   # shellcheck disable=SC2034
   _shellb_command_find_select_commandfile="${_shellb_command_find_select_commandfiles[_shellb_command_find_select_selection_index-1]}"

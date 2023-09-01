@@ -348,8 +348,6 @@ function _shellb_core_interactive_filter() {
   local -n _shellb_core_interactive_filter_output=$2
   local -n _shellb_core_interactive_filter_output_index=$3
   local instructions="$4"
-  local prompt_search="$5"
-  local prompt_confirm="$6"
 
   # if there is only one line, return it
   # but succeed only if it is not empty
@@ -385,36 +383,6 @@ function _shellb_core_interactive_filter() {
 
   return $exit_code
 }
-
-function shellb_foo() {
-  local shellb_foo_filtered_line shellb_foo_filtered_line_index
-  _shellb_print_dbg "shellb_foo($*)"
-  _shellb_foo "select bookmark to goto" shellb_foo_filtered_line shellb_foo_filtered_line_index "${@}" || return 1
-  echo "${shellb_foo_filtered_line}"
-  echo "${shellb_foo_filtered_line_index}"
-}
-
-function _shellb_foo() {
-  _shellb_print_dbg "_shellb_foo($*)"
-  local prompt="${1}"
-  shift
-  local -n _shellb_foo_filtered_line=$1
-  shift
-  local -n _shellb_foo_filtered_line_index=$1
-  shift
-  local -a _shellb_foo_bookmarks
-  local -a _shellb_foo_bookmarks_lines
-  local bookmarks_string
-
-  shellb_bookmark_list_long bookmarks_string _shellb_foo_bookmarks "$@" || return 1
-  bookmarks_string=$(echo "${bookmarks_string}" | tail -n +2)
-  _shellb_core_interactive_filter "$bookmarks_string" _shellb_foo_filtered_line _shellb_foo_filtered_line_index "instructions-$prompt" "prompt-search: " "prompt confirm: " || return 1
-
-  echo "${_shellb_foo_filtered_line}"
-  echo "${_shellb_foo_filtered_line_index}"
-  echo "${_shellb_foo_bookmarks[$_shellb_foo_filtered_line_index]}"
-}
-
 
 ######### compgen #############################
 
