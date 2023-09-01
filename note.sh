@@ -50,7 +50,7 @@ function shellb_notepad_show() {
 
   [ -e "${target}" ] || _shellb_print_err "notepad cat failed, no \"${proto_target}\" notepad" || return 1
   [ -s "${target}" ] || _shellb_print_err "notepad cat failed, \"${proto_target}\" is empty" || return 1
-  cat "${target}"
+  batcat "${target}"
 }
 
 # $1 - notepad file to delete (in user domain)
