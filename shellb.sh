@@ -134,7 +134,7 @@ _SHELLB_SOURCE_LOCATION="${BASH_SOURCE[0]}"
 
 # check if required tools are available
 _SHELLB_PROMPT_RELOAD="invoke \"shellb reload-config\" to reload config from \"${_SHELLB_RC}\""
-[ -e "$(command -v uuidgen)" ] || _shellb_print_err "find not found. Please install uuid-runtime and ${_SHELLB_PROMPT_RELOAD}"
+[ -e "$(command -v uuidgen)" ] || _shellb_print_err "uuidgen not found. Please install uuid-runtime and ${_SHELLB_PROMPT_RELOAD}"
 [ -e "$(command -v sed)" ] || _shellb_print_err "sed not found. Please install sed and ${_SHELLB_PROMPT_RELOAD}"
 [ -e "$(command -v awk)" ] || _shellb_print_err "awk not found. Please install awk and ${_SHELLB_PROMPT_RELOAD}"
 [ -e "$(command -v diff)" ] || _shellb_print_err "diff not found. Please install diffutils and ${_SHELLB_PROMPT_RELOAD}"
